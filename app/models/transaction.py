@@ -40,3 +40,7 @@ class Balance(Base):
     amount: Mapped[float] = mapped_column(Numeric(10, 2)) # Always positive
     currency_code: Mapped[str] = mapped_column(String, default="USD")
     last_updated: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+    owes_to: Mapped["User"] = relationship("User", foreign_keys=[owes_to_id])

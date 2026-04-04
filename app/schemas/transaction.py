@@ -36,6 +36,9 @@ class BalanceResponse(BaseModel):
     currency_code: str
     last_updated: datetime
 
+    user: Optional[UserResponse] = None
+    owes_to: Optional[UserResponse] = None
+
     class Config:
         from_attributes = True
 

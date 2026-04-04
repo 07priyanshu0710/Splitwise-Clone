@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://splitwise-clone-96iy.onrender.com/api/v1';
 
 export const getToken = () => {
   if (typeof window !== 'undefined') {

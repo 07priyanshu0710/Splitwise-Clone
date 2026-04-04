@@ -21,7 +21,7 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # For 100% free generic deployment, we allow all temporarily.
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
