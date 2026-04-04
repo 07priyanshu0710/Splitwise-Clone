@@ -39,7 +39,10 @@ if config.config_file_name is not None:
 # The URL in settings comes from env vars.
 # .env has POSTGRES_SERVER=localhost, so it should work if port is correct.
 
-config.set_main_option("sqlalchemy.url", str(settings.SQLALCHEMY_DATABASE_URI))
+config.set_main_option(
+    "sqlalchemy.url", 
+    str(settings.SQLALCHEMY_DATABASE_URI).replace("postgresql+asyncpg", "postgresql")
+)
 
 target_metadata = Base.metadata
 
@@ -55,38 +58,22 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
-
-import asyncio
-from sqlalchemy.ext.asyncio import async_engine_from_config
-
-async def run_migrations_online() -> None:
-    configuration = config.get_section(config.config_ini_section)
-    cmd_line_url = config.get_main_option("sqlalchemy.url")
-    if cmd_line_url:
-        configuration["sqlalchemy.url"] = cmd_line_url
-    else:
-        configuration["sqlalchemy.url"] = str(settings.SQLALCHEMY_DATABASE_URI)
-    
-    connectable = async_engine_from_config(
-        configuration,
+def run_migrations_online() -> None:
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection, target_metadata=target_metadata
+        )
 
-    await connectable.dispose()
-
-
-def do_run_migrations(connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
-
-    with context.begin_transaction():
-        context.run_migrations()
-
+        with context.begin_transaction():
+            context.run_migrations()
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    asyncio.run(run_migrations_online())
+    run_migrations_online()
