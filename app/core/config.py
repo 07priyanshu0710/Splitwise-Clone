@@ -1,21 +1,18 @@
-
 from typing import ClassVar
 from pydantic_settings import BaseSettings
-from pydantic import PostgresDsn, RedisDsn, computed_field
+from pydantic import PostgresDsn, computed_field
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Splitwise Clone"
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = "YOUR_SUPER_SECRET_KEY_HERE"  # Change in production!
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
-    
+    SECRET_KEY: str = "YOUR_SUPER_SECRET_KEY_HERE"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+
     POSTGRES_SERVER: str = "db"
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "splitwise"
     POSTGRES_PORT: int = 5432
-
-    REDIS_URL: str = "redis://redis:6379/0"
 
     DATABASE_URL: str | None = None
 
@@ -29,7 +26,7 @@ class Settings(BaseSettings):
             if url.startswith("postgresql://"):
                 url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
             return url
-            
+
         return str(PostgresDsn.build(
             scheme="postgresql+asyncpg",
             username=self.POSTGRES_USER,

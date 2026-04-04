@@ -10,6 +10,7 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,6 +19,8 @@ export default function Home() {
     if (getToken()) {
       router.push("/dashboard");
     }
+    // Warm up the backend while user fills in the form
+    fetch('https://splitwise-clone-96iy.onrender.com/health').catch(() => {});
   }, [router]);
 
   const handleSubmit = async (e) => {
@@ -31,7 +34,7 @@ export default function Home() {
         setToken(data.access_token);
         router.push("/dashboard");
       } else {
-        await api.register(email, password, fullName);
+        await api.register(email, password, fullName, mobileNumber || null);
         // Automatically log them in after registration
         const data = await api.login(email, password);
         setToken(data.access_token);
@@ -88,6 +91,19 @@ export default function Home() {
               placeholder="you@example.com"
             />
           </div>
+
+          {!isLogin && (
+            <div>
+              <label className="label">Mobile Number (Optional)</label>
+              <input
+                type="tel"
+                className="input-field"
+                value={mobileNumber}
+                onChange={(e) => setMobileNumber(e.target.value)}
+                placeholder="+91 9876543210"
+              />
+            </div>
+          )}
 
           <div>
             <label className="label">Password</label>

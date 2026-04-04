@@ -20,7 +20,7 @@ def test_groups_and_expenses_flow(client, test_user_token_headers):
     response = client.post(
         f"/api/v1/groups/{group_id}/members",
         headers=test_user_token_headers["token1"],
-        json={"email": email2}
+        json={"identifier": email2}
     )
     assert response.status_code == 200
     assert len(response.json()["members"]) == 2

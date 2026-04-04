@@ -10,15 +10,6 @@ python-jose[cryptography]
 bcrypt==3.2.2
 passlib[bcrypt]
 python-multipart
-httpx
-pytest
-pytest-asyncio
-redis
-sentry-sdk
-gunicorn
-uvloop
 email-validator
-pytest-cov
-httpx
 gunicorn==21.2.0
 python-dotenv==1.0.1

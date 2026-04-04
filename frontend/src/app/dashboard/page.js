@@ -43,12 +43,11 @@ export default function Dashboard() {
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!newGroupName.trim()) return;
-    
+
     setCreatingGroup(true);
     try {
       await api.createGroup(newGroupName);
       setNewGroupName("");
-      // Refresh groups
       const groupData = await api.getGroups();
       setGroups(groupData);
     } catch (err) {
@@ -59,17 +58,20 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>Loading dashboard...</div>;
+    return (
+      <div className="loading-screen">
+        <div className="spinner" />
+        <p>Loading your dashboard... If the server was sleeping, this may take up to 30 seconds on the first load.</p>
+      </div>
+    );
   }
 
-  // Calculate generic total formatting
   const totalOwed = balances.filter(b => b.user_id === user?.id).reduce((acc, curr) => acc + curr.amount, 0);
   const totalOwedToMe = balances.filter(b => b.owes_to_id === user?.id).reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem 1rem' }}>
-      
-      {/* Header Profile Area */}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>Dashboard</h1>
@@ -81,19 +83,18 @@ export default function Dashboard() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-        
-        {/* Balances Column */}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          
+
           <div className="glass-card" style={{ padding: '1.5rem' }}>
             <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: '#60a5fa' }}>Overall Balances</h2>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
               <span style={{ color: '#94a3b8' }}>You Owe</span>
-              <span style={{ color: '#ef4444', fontWeight: 'semibold' }}>${totalOwed.toFixed(2)}</span>
+              <span style={{ color: '#ef4444', fontWeight: '600' }}>${totalOwed.toFixed(2)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: '#94a3b8' }}>You are owed</span>
-              <span style={{ color: '#10b981', fontWeight: 'semibold' }}>${totalOwedToMe.toFixed(2)}</span>
+              <span style={{ color: '#10b981', fontWeight: '600' }}>${totalOwedToMe.toFixed(2)}</span>
             </div>
           </div>
 
@@ -107,7 +108,7 @@ export default function Dashboard() {
                   const amIOwed = b.owes_to_id === user?.id;
                   const otherParam = amIOwed ? b.user : b.owes_to;
                   const otherName = otherParam?.full_name || otherParam?.email || `User #${amIOwed ? b.user_id : b.owes_to_id}`;
-                  
+
                   return (
                     <li key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                       <span>{otherName}</span>
@@ -122,10 +123,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Groups Column */}
         <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
           <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: '#34d399' }}>Your Groups</h2>
-          
+
           <div style={{ flex: 1 }}>
             {groups.length === 0 ? (
               <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '2rem' }}>You are not part of any groups yet.</p>
@@ -154,7 +154,7 @@ export default function Dashboard() {
                 required
               />
               <button type="submit" className="btn" disabled={creatingGroup}>
-                {creatingGroup ? "+++" : "Create"}
+                {creatingGroup ? "..." : "Create"}
               </button>
             </div>
           </form>

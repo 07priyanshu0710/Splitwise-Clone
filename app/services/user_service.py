@@ -1,4 +1,3 @@
-
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from typing import Optional, Any
@@ -13,19 +12,23 @@ class UserService:
         self.repository = UserRepository(db)
 
     def register_user(self, user_in: UserCreate) -> User:
-        # Check if user exists
         if self.repository.get_by_email(user_in.email):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered",
             )
-        
-        # Hash password and create user
+
+        if user_in.mobile_number and self.repository.get_by_mobile_number(user_in.mobile_number):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mobile number already registered",
+            )
+
         hashed_password = security.get_password_hash(user_in.password)
         user_data = user_in.model_dump()
         user_data["hashed_password"] = hashed_password
         del user_data["password"]
-        
+
         return self.repository.create(user_data)
 
     def authenticate_user(self, user_in: UserLogin) -> Token:
@@ -36,7 +39,7 @@ class UserService:
                 detail="Incorrect email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         access_token = security.create_access_token(subject=user.id)
         return Token(access_token=access_token, token_type="bearer")
 
@@ -49,5 +52,5 @@ class UserService:
             hashed_password = security.get_password_hash(user_data["password"])
             user_data["hashed_password"] = hashed_password
             del user_data["password"]
-        
+
         return self.repository.update(user, user_data)

@@ -115,3 +115,44 @@ a {
 .animate-fade-in {
   animation: fadeIn 0.4s ease forwards;
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.skeleton {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  gap: 1.5rem;
+  color: #94a3b8;
+}
+
+.loading-screen p {
+  font-size: 0.875rem;
+  max-width: 280px;
+  text-align: center;
+  line-height: 1.5;
+}

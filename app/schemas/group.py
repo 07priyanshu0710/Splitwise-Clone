@@ -4,18 +4,16 @@ from datetime import datetime
 from app.models.group import GroupMemberRole
 from app.schemas.user import UserResponse
 
-# Properties to receive via API on creation
 class GroupCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
 
-# Properties to receive via API on update
 class GroupUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
 
 class GroupMemberAdd(BaseModel):
-    email: str
+    identifier: str = Field(..., description="Email address or mobile number of the user to add")
 
 class GroupMemberResponse(BaseModel):
     id: int
@@ -27,7 +25,6 @@ class GroupMemberResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# Properties to return via API
 class GroupResponse(BaseModel):
     id: int
     name: str

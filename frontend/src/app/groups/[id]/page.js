@@ -8,18 +8,16 @@ import Link from "next/link";
 export default function GroupDetail() {
   const { id } = useParams();
   const router = useRouter();
-  
+
   const [group, setGroup] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Expense form
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Member form
-  const [memberEmail, setMemberEmail] = useState("");
+  const [memberIdentifier, setMemberIdentifier] = useState("");
   const [addingMember, setAddingMember] = useState(false);
 
   useEffect(() => {
@@ -44,15 +42,15 @@ export default function GroupDetail() {
 
   const handleAddMember = async (e) => {
     e.preventDefault();
-    if (!memberEmail) return;
+    if (!memberIdentifier) return;
 
     setAddingMember(true);
     try {
-      await api.addGroupMember(id, memberEmail);
-      setMemberEmail("");
-      // Refresh group metadata
+      await api.addGroupMember(id, memberIdentifier);
+      setMemberIdentifier("");
       const grpData = await api.getGroup(id);
       setGroup(grpData);
+      alert('Member added successfully!');
     } catch (err) {
       alert(err.message || "Failed to add member");
     } finally {
@@ -63,11 +61,9 @@ export default function GroupDetail() {
   const handleAddExpense = async (e) => {
     e.preventDefault();
     if (!description || !amount) return;
-    
+
     setSubmitting(true);
     try {
-      // Splitwise defaults to EQUAL split when not strictly passing exact splits,
-      // Our backend handles single user EQUAL perfectly if we just send the expense skeleton
       await api.createExpense({
         description,
         amount: parseFloat(amount),
@@ -75,10 +71,9 @@ export default function GroupDetail() {
         split_type: "equal",
         splits: group.members ? group.members.map(m => ({ user_id: m.user_id })) : []
       });
-      
+
       setDescription("");
       setAmount("");
-      // Refresh expenses
       const expData = await api.getGroupExpenses(id);
       setExpenses(expData);
     } catch (err) {
@@ -89,14 +84,19 @@ export default function GroupDetail() {
   };
 
   if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>Loading group...</div>;
+    return (
+      <div className="loading-screen">
+        <div className="spinner" />
+        <p>Loading group details...</p>
+      </div>
+    );
   }
 
   if (!group) return <div style={{ color: 'white', textAlign: 'center', marginTop: '5rem' }}>Group not found</div>;
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem 1rem' }}>
-      
+
       <div style={{ marginBottom: '2rem' }}>
         <Link href="/dashboard" style={{ color: '#60a5fa', fontSize: '0.875rem', marginBottom: '1rem', display: 'inline-block' }}>
           ← Back to Dashboard
@@ -107,7 +107,7 @@ export default function GroupDetail() {
 
       <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: '#60a5fa' }}>Group Members</h2>
-        
+
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
           {group.members.map((m) => (
             <span key={m.id} style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.875rem' }}>
@@ -118,13 +118,13 @@ export default function GroupDetail() {
 
         <form onSubmit={handleAddMember} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 200px' }}>
-            <label className="label">Add Member (Email)</label>
+            <label className="label">Add Member (Email or Mobile)</label>
             <input
-              type="email"
+              type="text"
               className="input-field"
-              placeholder="friend@example.com"
-              value={memberEmail}
-              onChange={(e) => setMemberEmail(e.target.value)}
+              placeholder="friend@example.com or +91 98765..."
+              value={memberIdentifier}
+              onChange={(e) => setMemberIdentifier(e.target.value)}
               style={{ marginBottom: 0 }}
               required
             />
@@ -143,7 +143,7 @@ export default function GroupDetail() {
             <input
               type="text"
               className="input-field"
-              placeholder="Dinner at generic place..."
+              placeholder="Dinner, taxi, groceries..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               style={{ marginBottom: 0 }}

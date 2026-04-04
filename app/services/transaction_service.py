@@ -23,12 +23,9 @@ class TransactionService:
         if not payee:
             raise HTTPException(status_code=404, detail="Payee not found")
 
-        # Create settlement
         settlement_data = settlement_in.model_dump()
         settlement = self.settlement_repo.create_settlement(settlement_data, current_user.id)
 
-        # Update Balance: payer is settling up so payer is effectively reducing their debt.
-        # This is mathematically the same as payee_id owing payer_id the amount.
         self.balance_repo.update_balance(
             user_id=settlement.payee_id,
             owes_to_id=settlement.payer_id,

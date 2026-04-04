@@ -27,10 +27,15 @@ async function fetchWithAuth(endpoint, options = {}) {
     ...options.headers,
   };
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (networkError) {
+    throw new Error('Unable to reach the server. It may be waking up — please try again in a few seconds.');
+  }
 
   const data = await response.json().catch(() => ({}));
 
@@ -53,39 +58,33 @@ async function fetchWithAuth(endpoint, options = {}) {
 }
 
 export const api = {
-  // Auth
   login: (username, password) => {
-    // URLSearchParams for form-urlencoded required by OAuth2PasswordRequestForm
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
-    
+
     return fetchWithAuth('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: formData.toString()
     });
   },
-  register: (email, password, fullName) => 
-    fetchWithAuth('/auth/register', { 
-      method: 'POST', 
-      body: JSON.stringify({ email, password, full_name: fullName }) 
+  register: (email, password, fullName, mobileNumber) =>
+    fetchWithAuth('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, full_name: fullName, mobile_number: mobileNumber })
     }),
   getMe: () => fetchWithAuth('/users/me'),
 
-  // Balances
   getMyBalances: () => fetchWithAuth('/balances/me'),
 
-  // Groups
   getGroups: () => fetchWithAuth('/groups/'),
   getGroup: (id) => fetchWithAuth(`/groups/${id}`),
   createGroup: (name) => fetchWithAuth('/groups/', { method: 'POST', body: JSON.stringify({ name }) }),
-  addGroupMember: (groupId, email) => fetchWithAuth(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify({ email }) }),
+  addGroupMember: (groupId, identifier) => fetchWithAuth(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify({ identifier }) }),
 
-  // Expenses
   getGroupExpenses: (groupId) => fetchWithAuth(`/expenses/group/${groupId}`),
   createExpense: (payload) => fetchWithAuth(`/expenses/`, { method: 'POST', body: JSON.stringify(payload) }),
 
-  // Summary
   getMonthlySummary: () => fetchWithAuth('/reports/monthly-summary'),
 };

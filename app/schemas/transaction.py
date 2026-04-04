@@ -2,7 +2,21 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from app.schemas.user import UserResponse
-from app.schemas.group import GroupResponse
+
+class BalanceResponse(BaseModel):
+    id: int
+    user_id: int
+    owes_to_id: int
+    group_id: Optional[int] = None
+    amount: float
+    currency_code: str
+    last_updated: datetime
+
+    user: Optional[UserResponse] = None
+    owes_to: Optional[UserResponse] = None
+
+    class Config:
+        from_attributes = True
 
 class SettlementCreate(BaseModel):
     payee_id: int
@@ -20,24 +34,9 @@ class SettlementResponse(BaseModel):
     group_id: Optional[int] = None
     description: Optional[str] = None
     created_at: datetime
-    
+
     payer: UserResponse
     payee: UserResponse
-
-    class Config:
-        from_attributes = True
-
-class BalanceResponse(BaseModel):
-    id: int
-    user_id: int
-    owes_to_id: int
-    group_id: Optional[int] = None
-    amount: float
-    currency_code: str
-    last_updated: datetime
-
-    user: Optional[UserResponse] = None
-    owes_to: Optional[UserResponse] = None
 
     class Config:
         from_attributes = True

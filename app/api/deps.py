@@ -1,5 +1,4 @@
-
-from typing import Generator, Optional
+from typing import Generator
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
@@ -45,7 +44,7 @@ def get_current_user(
         token_data = TokenData(sub=user_id)
     except JWTError:
         raise credentials_exception
-    
+
     user_service = UserService(db)
     user = user_service.get_user_by_id(user_id=int(token_data.sub))
     if user is None:

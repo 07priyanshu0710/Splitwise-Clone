@@ -14,7 +14,4 @@ def create_settlement(
     current_user: User = Depends(deps.get_current_active_user),
     service: TransactionService = Depends(deps.get_transaction_service)
 ) -> Any:
-    """
-    Record a payment (settlement) from the current user to someone else.
-    """
     return service.create_settlement(settlement_in, current_user)

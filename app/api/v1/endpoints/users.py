@@ -1,4 +1,3 @@
-
 from typing import Any
 from fastapi import APIRouter, Depends
 from app.schemas.user import UserResponse, UserUpdate
@@ -12,9 +11,6 @@ router = APIRouter()
 def read_user_me(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Get current user.
-    """
     return current_user
 
 @router.put("/me", response_model=UserResponse)
@@ -24,7 +20,4 @@ def update_user_me(
     current_user: User = Depends(deps.get_current_active_user),
     service: UserService = Depends(deps.get_user_service)
 ) -> Any:
-    """
-    Update own user.
-    """
     return service.update_user(current_user, user_in)

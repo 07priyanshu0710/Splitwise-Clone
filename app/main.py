@@ -1,7 +1,7 @@
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import app.db.base  # noqa: F401 - Import models to ensure they are registered
+from fastapi.middleware.gzip import GZipMiddleware
+import app.db.base  # noqa: F401
 from app.core.config import settings
 
 app = FastAPI(
@@ -9,18 +9,11 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# CORS Configuration
-# Adjust ALLOWED_ORIGINS via environment variable in production
-origins = [
-    "http://localhost",
-    "http://localhost:8080",
-    "http://localhost:3000",
-    "https://splitwise-frontend-demo.vercel.app" # Example frontend
-]
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For 100% free generic deployment, we allow all temporarily.
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

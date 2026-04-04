@@ -5,10 +5,8 @@ services:
     dockerfilePath: ./Dockerfile
     envVars:
       - key: DATABASE_URL
-        # Replace this in Render UI with Supabase pooling string (Session Mode URL Port 6543)
         sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: WEB_CONCURRENCY
-        # Allow Gunicorn to spin multiple threads gracefully
         value: "2"
