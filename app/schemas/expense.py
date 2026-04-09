@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from app.models.expense import SplitType
@@ -27,8 +27,7 @@ class ExpenseSplitResponse(BaseModel):
     shares: Optional[float] = None
     user: UserResponse
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ExpenseResponse(BaseModel):
     id: int
@@ -45,5 +44,4 @@ class ExpenseResponse(BaseModel):
     group: Optional[GroupListResponse] = None
     splits: List[ExpenseSplitResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

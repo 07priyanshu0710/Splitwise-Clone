@@ -1,6 +1,6 @@
 # Splitwise Clone
 
-A production-grade expense-splitting application with a **FastAPI** backend and **Next.js** frontend, deployed on **Render** + **Vercel**.
+A production-grade, high-performance expense-splitting application with **Clean Architecture** (FastAPI) and a **Neo-brutalist** frontend (Next.js), featuring Redis-backed balance caching and robust cloud resilience.
 
 **Live Demo:**
 - 🌐 Frontend: [splitwise-clone-dusky.vercel.app](https://splitwise-clone-dusky.vercel.app)
@@ -30,9 +30,10 @@ A production-grade expense-splitting application with a **FastAPI** backend and 
   - **Unequal** — Exact per-user amounts with sum validation
   - **Percentage** — Percentage-based with automatic rounding correction
   - **Shares** — Proportional split based on share ratios
-- **Real-Time Balances** — Cached bidirectional debt ledger with automatic offset cancellation
-- **Settlements** — Record payments between users, automatically reducing outstanding balances
-- **Monthly Reports** — Aggregated paid vs. owed summaries by month
+- **Real-Time Balances** — High-performance bidirectional debt ledger with **Redis Read-Through caching** and automatic offset cancellation.
+- **Fail-Safe Resilience** — Architectural "Circuit Breaker" handles intermittent Redis or Database downtime gracefully.
+- **Settlements** — Record payments between users, automatically Reducing outstanding balances across all cached layers.
+- **Monthly Reports** — Professional aggregated spending analytics.
 
 ## Architecture
 

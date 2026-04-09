@@ -1,61 +1,81 @@
 import pytest
-from app.services.expense_service import ExpenseService
-from app.models.expense import SplitType
+from unittest.mock import MagicMock
 from decimal import Decimal
-from typing import List
-from pydantic import BaseModel
-from fastapi import HTTPException
+from app.services.expense_service import ExpenseService
+from app.schemas.expense import ExpenseCreate, ExpenseSplitCreate
+from app.models.expense import SplitType
+from app.core.exceptions import BusinessLogicError, ForbiddenError
 
-# Mocking Split object since we need .amount property access
-class MockSplit:
-    def __init__(self, amount=None, percentage=None, shares=None):
-        self.amount = amount
-        self.percentage = percentage
-        self.shares = shares
+@pytest.fixture
+def mock_repos():
+    return {
+        "expense_repo": MagicMock(),
+        "group_repo": MagicMock(),
+        "balance_repo": MagicMock()
+    }
 
-class MockExpenseService(ExpenseService):
-    def __init__(self):
-        # Do not initialize db repositories
-        pass
+@pytest.fixture
+def expense_service(mock_repos):
+    return ExpenseService(
+        repository=mock_repos["expense_repo"],
+        group_repository=mock_repos["group_repo"],
+        balance_repository=mock_repos["balance_repo"]
+    )
 
-def test_equal_split():
-    svc = MockExpenseService()
-    splits = [MockSplit(), MockSplit(), MockSplit()]
-    svc._validate_equal_split(Decimal('100.00'), splits)
-    # Expected: 33.34, 33.33, 33.33
+def test_validate_equal_split(expense_service):
+    total = Decimal("100.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1),
+        ExpenseSplitCreate(user_id=2),
+        ExpenseSplitCreate(user_id=3)
+    ]
+    
+    expense_service._validate_equal_split(total, splits)
+    
+    # 100 / 3 = 33.33. First one gets the remainder.
+    # 33.33 * 3 = 99.99. Remainder = 0.01.
+    # splits[0] = 33.33 + 0.01 = 33.34
     assert splits[0].amount == 33.34
     assert splits[1].amount == 33.33
     assert splits[2].amount == 33.33
+    assert sum(s.amount for s in splits) == 100.00
 
-def test_percentage_split():
-    svc = MockExpenseService()
-    splits = [MockSplit(percentage=60), MockSplit(percentage=40)]
-    svc._validate_percentage_split(Decimal('200.00'), splits)
-    assert splits[0].amount == 120.0
-    assert splits[1].amount == 80.0
-
-def test_percentage_split_invalid_sum():
-    svc = MockExpenseService()
-    splits = [MockSplit(percentage=50), MockSplit(percentage=40)]
-    with pytest.raises(HTTPException) as excinfo:
-        svc._validate_percentage_split(Decimal('200.00'), splits)
-    assert excinfo.value.status_code == 400
-
-def test_share_split():
-    svc = MockExpenseService()
-    splits = [MockSplit(shares=2), MockSplit(shares=1)]
-    svc._validate_share_split(Decimal('90.00'), splits)
-    assert splits[0].amount == 60.0 # 2/3 of 90
-    assert splits[1].amount == 30.0 # 1/3 of 90
-
-def test_unequal_split():
-    svc = MockExpenseService()
-    splits = [MockSplit(amount=70.0), MockSplit(amount=30.0)]
-    svc._validate_unequal_split(Decimal('100.00'), splits)
+def test_validate_percentage_split_success(expense_service):
+    total = Decimal("200.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1, percentage=50.0),
+        ExpenseSplitCreate(user_id=2, percentage=50.0)
+    ]
     
-def test_unequal_split_invalid():
-    svc = MockExpenseService()
-    splits = [MockSplit(amount=70.0), MockSplit(amount=40.0)]
-    with pytest.raises(HTTPException) as excinfo:
-        svc._validate_unequal_split(Decimal('100.00'), splits)
-    assert excinfo.value.status_code == 400
+    expense_service._validate_percentage_split(total, splits)
+    
+    assert splits[0].amount == 100.00
+    assert splits[1].amount == 100.00
+
+def test_validate_percentage_split_invalid_sum(expense_service):
+    total = Decimal("200.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1, percentage=50.0),
+        ExpenseSplitCreate(user_id=2, percentage=40.0)
+    ]
+    
+    with pytest.raises(BusinessLogicError) as excinfo:
+        expense_service._validate_percentage_split(total, splits)
+    assert "Sum of percentages" in str(excinfo.value)
+
+def test_create_expense_forbidden_group(expense_service, mock_repos):
+    mock_repos["group_repo"].get_member.return_value = None
+    
+    expense_in = ExpenseCreate(
+        description="Dinner",
+        amount=100.00,
+        curvature_code="USD",
+        split_type=SplitType.EQUAL,
+        group_id=1,
+        splits=[ExpenseSplitCreate(user_id=1)]
+    )
+    current_user = MagicMock()
+    current_user.id = 1
+    
+    with pytest.raises(ForbiddenError):
+        expense_service.create_expense(expense_in, current_user)

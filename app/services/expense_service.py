@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
 from typing import List
 from decimal import Decimal
+import logging
 
 from app.repositories.expense_repository import ExpenseRepository
 from app.repositories.group_repository import GroupRepository
@@ -9,21 +9,31 @@ from app.repositories.transaction_repository import BalanceRepository
 from app.schemas.expense import ExpenseCreate
 from app.models.expense import Expense, SplitType
 from app.models.user import User
+from app.core.exceptions import BusinessLogicError, NotFoundError, ForbiddenError
+from app.core.logging_config import LoggerMixin
 
-class ExpenseService:
-    def __init__(self, db: Session):
-        self.repository = ExpenseRepository(db)
-        self.group_repository = GroupRepository(db)
-        self.balance_repository = BalanceRepository(db)
+class ExpenseService(LoggerMixin):
+    def __init__(
+        self, 
+        repository: ExpenseRepository, 
+        group_repository: GroupRepository, 
+        balance_repository: BalanceRepository
+    ):
+        self.repository = repository
+        self.group_repository = group_repository
+        self.balance_repository = balance_repository
 
     def create_expense(self, expense_in: ExpenseCreate, current_user: User) -> Expense:
+        self.logger.info(f"Creating expense: {expense_in.description} for user {current_user.id}")
+        
         if expense_in.group_id is not None:
             member = self.group_repository.get_member(expense_in.group_id, current_user.id)
             if not member:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only add expenses to groups you are in")
+                self.logger.warning(f"User {current_user.id} tried to add expense to group {expense_in.group_id} they are not in")
+                raise ForbiddenError("You can only add expenses to groups you are in")
 
         if not expense_in.splits:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one split must be provided")
+            raise BusinessLogicError("At least one split must be provided")
 
         total_amount = Decimal(str(expense_in.amount))
 
@@ -36,23 +46,29 @@ class ExpenseService:
         elif expense_in.split_type == SplitType.SHARE:
             self._validate_share_split(total_amount, expense_in.splits)
         else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid split type")
+            raise BusinessLogicError("Invalid split type")
 
         expense_data = expense_in.model_dump(exclude={'splits'})
         splits_data = [split.model_dump() for split in expense_in.splits]
-        expense = self.repository.create_with_splits(expense_data, splits_data, current_user.id)
+        
+        try:
+            expense = self.repository.create_with_splits(expense_data, splits_data, current_user.id)
+            self.logger.info(f"Expense {expense.id} created successfully")
 
-        for split in expense.splits:
-            if split.user_id != expense.payer_id and split.amount > 0:
-                self.balance_repository.update_balance(
-                    user_id=split.user_id,
-                    owes_to_id=expense.payer_id,
-                    amount=split.amount,
-                    currency_code=expense.curvature_code,
-                    group_id=expense.group_id
-                )
-
-        return self.repository.get_with_details(expense.id)
+            for split in expense.splits:
+                if split.user_id != expense.payer_id and split.amount > 0:
+                    self.balance_repository.update_balance(
+                        user_id=split.user_id,
+                        owes_to_id=expense.payer_id,
+                        amount=split.amount,
+                        currency_code=expense.curvature_code,
+                        group_id=expense.group_id
+                    )
+            
+            return self.repository.get_with_details(expense.id)
+        except Exception as e:
+            self.logger.exception(f"Failed to create expense: {str(e)}")
+            raise BusinessLogicError(f"Failed to create expense: {str(e)}")
 
     def _validate_equal_split(self, total: Decimal, splits: List):
         count = len(splits)
@@ -71,20 +87,20 @@ class ExpenseService:
         split_sum = Decimal('0.00')
         for split in splits:
             if split.amount is None:
-                raise HTTPException(status_code=400, detail="Amount must be provided for unequal split")
+                raise BusinessLogicError("Amount must be provided for unequal split")
             split_sum += Decimal(str(split.amount))
             split.percentage = None
             split.shares = None
 
         if split_sum != total:
-            raise HTTPException(status_code=400, detail=f"Sum of splits ({split_sum}) does not equal total amount ({total})")
+            raise BusinessLogicError(f"Sum of splits ({split_sum}) does not equal total amount ({total})")
 
     def _validate_percentage_split(self, total: Decimal, splits: List):
         perc_sum = Decimal('0.00')
         calculated_sum = Decimal('0.00')
         for split in splits:
             if split.percentage is None:
-                raise HTTPException(status_code=400, detail="Percentage must be provided for percentage split")
+                raise BusinessLogicError("Percentage must be provided for percentage split")
             perc = Decimal(str(split.percentage))
             perc_sum += perc
             amt = round(total * perc / Decimal('100'), 2)
@@ -93,7 +109,7 @@ class ExpenseService:
             split.shares = None
 
         if perc_sum != Decimal('100.00'):
-            raise HTTPException(status_code=400, detail=f"Sum of percentages ({perc_sum}) does not equal 100")
+            raise BusinessLogicError(f"Sum of percentages ({perc_sum}) does not equal 100")
 
         remainder = total - calculated_sum
         splits[0].amount = float(Decimal(str(splits[0].amount)) + remainder)
@@ -102,12 +118,12 @@ class ExpenseService:
         total_shares = Decimal('0')
         for split in splits:
             if split.shares is None:
-                raise HTTPException(status_code=400, detail="Shares must be provided for share split")
+                raise BusinessLogicError("Shares must be provided for share split")
             total_shares += Decimal(str(split.shares))
             split.percentage = None
 
         if total_shares <= 0:
-            raise HTTPException(status_code=400, detail="Total shares must be greater than zero")
+            raise BusinessLogicError("Total shares must be greater than zero")
 
         calculated_sum = Decimal('0.00')
         for split in splits:
@@ -122,13 +138,13 @@ class ExpenseService:
     def get_expense(self, expense_id: int, user_id: int) -> Expense:
         expense = self.repository.get_with_details(expense_id)
         if not expense:
-            raise HTTPException(status_code=404, detail="Expense not found")
+            raise NotFoundError("Expense not found")
         if expense.payer_id != user_id and not any(s.user_id == user_id for s in expense.splits):
-            raise HTTPException(status_code=403, detail="Forbidden")
+            raise ForbiddenError("You do not have access to this expense")
         return expense
 
     def get_group_expenses(self, group_id: int, user_id: int) -> List[Expense]:
         member = self.group_repository.get_member(group_id, user_id)
         if not member:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a member of this group")
+            raise ForbiddenError("Not a member of this group")
         return self.repository.get_group_expenses(group_id)

@@ -10,5 +10,13 @@ services:
     ports:
       - 5455:5432
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - 6380:6379
+    volumes:
+      - redis_data:/data
+
 volumes:
   postgres_data:
+  redis_data:

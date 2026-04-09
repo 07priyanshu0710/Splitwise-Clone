@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from app.schemas.user import UserResponse
@@ -15,8 +15,7 @@ class BalanceResponse(BaseModel):
     user: Optional[UserResponse] = None
     owes_to: Optional[UserResponse] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SettlementCreate(BaseModel):
     payee_id: int
@@ -38,8 +37,7 @@ class SettlementResponse(BaseModel):
     payer: UserResponse
     payee: UserResponse
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class GroupBalancesResponse(BaseModel):
     group_id: int

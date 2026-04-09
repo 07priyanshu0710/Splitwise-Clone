@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from app.models.group import GroupMemberRole
@@ -22,8 +22,7 @@ class GroupMemberResponse(BaseModel):
     joined_at: datetime
     user: UserResponse
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class GroupResponse(BaseModel):
     id: int
@@ -33,8 +32,7 @@ class GroupResponse(BaseModel):
     created_at: datetime
     members: List[GroupMemberResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class GroupListResponse(BaseModel):
     id: int
@@ -43,5 +41,4 @@ class GroupListResponse(BaseModel):
     created_by_id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

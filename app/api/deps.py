@@ -10,22 +10,42 @@ from app.services.user_service import UserService
 from app.services.group_service import GroupService
 from app.services.expense_service import ExpenseService
 from app.services.transaction_service import TransactionService
+from app.repositories.user_repository import UserRepository
+from app.repositories.group_repository import GroupRepository
+from app.repositories.expense_repository import ExpenseRepository
+from app.repositories.transaction_repository import BalanceRepository, SettlementRepository
+from app.repositories.report_repository import ReportRepository
+from app.services.report_service import ReportService
 from app.models.user import User
 from app.schemas.user import TokenData
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
 def get_user_service(db: Session = Depends(get_db)) -> UserService:
-    return UserService(db)
+    repo = UserRepository(db)
+    return UserService(repo)
 
 def get_group_service(db: Session = Depends(get_db)) -> GroupService:
-    return GroupService(db)
+    repo = GroupRepository(db)
+    user_repo = UserRepository(db)
+    return GroupService(repo, user_repo)
 
 def get_expense_service(db: Session = Depends(get_db)) -> ExpenseService:
-    return ExpenseService(db)
+    repo = ExpenseRepository(db)
+    group_repo = GroupRepository(db)
+    balance_repo = BalanceRepository(db)
+    return ExpenseService(repo, group_repo, balance_repo)
 
 def get_transaction_service(db: Session = Depends(get_db)) -> TransactionService:
-    return TransactionService(db)
+    settlement_repo = SettlementRepository(db)
+    balance_repo = BalanceRepository(db)
+    user_repo = UserRepository(db)
+    group_repo = GroupRepository(db)
+    return TransactionService(settlement_repo, balance_repo, user_repo, group_repo)
+
+def get_report_service(db: Session = Depends(get_db)) -> ReportService:
+    repo = ReportRepository(db)
+    return ReportService(repo)
 
 def get_current_user(
     db: Session = Depends(get_db),
@@ -45,7 +65,7 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user_service = UserService(db)
+    user_service = UserService(UserRepository(db))
     user = user_service.get_user_by_id(user_id=int(token_data.sub))
     if user is None:
         raise credentials_exception

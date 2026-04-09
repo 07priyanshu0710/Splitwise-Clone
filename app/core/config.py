@@ -1,6 +1,6 @@
 from typing import ClassVar
 from pydantic_settings import BaseSettings
-from pydantic import PostgresDsn, computed_field
+from pydantic import PostgresDsn, computed_field, ConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Splitwise Clone"
@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "splitwise"
     POSTGRES_PORT: int = 5432
-
     DATABASE_URL: str | None = None
+
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_URL: Optional[str] = None
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     @computed_field
     @property
@@ -34,10 +39,8 @@ class Settings(BaseSettings):
             host=self.POSTGRES_SERVER,
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
-        ))
+        )) + "?sslmode=require"
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
+    model_config = ConfigDict(case_sensitive=True, env_file=".env", extra="allow")
 
 settings = Settings()
