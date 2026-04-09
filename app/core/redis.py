@@ -6,9 +6,10 @@ redis_client = None
 
 try:
     if settings.REDIS_URL:
-        # For Upstash/Production
+        # For Upstash/Production - Clean the URL to handle trailing spaces or quotes from dashboard copy-pastes
+        url = settings.REDIS_URL.strip().strip('"').strip("'")
         redis_client = redis.Redis.from_url(
-            settings.REDIS_URL,
+            url,
             decode_responses=True,
             socket_timeout=2.0, # Don't block the app for too long
             retry_on_timeout=True
