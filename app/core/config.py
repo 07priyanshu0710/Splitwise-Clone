@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import ClassVar, Optional, List
 from pydantic_settings import BaseSettings
 from pydantic import PostgresDsn, computed_field, ConfigDict
 
