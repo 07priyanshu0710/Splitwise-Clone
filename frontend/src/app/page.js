@@ -3,6 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api, setToken, getToken } from "@/lib/api";
+import { NeoButton } from "@/components/ui/NeoButton";
+import { NeoInput } from "@/components/ui/NeoInput";
+import { NeoCard } from "@/components/ui/NeoCard";
+import { ArrowRight, Star } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
@@ -41,101 +45,121 @@ export default function Home() {
         router.push("/dashboard");
       }
     } catch (err) {
-      setError(err.message || "An error occurred");
+        // Safe check for err.response or raw error string
+        if (err.response && err.response.data && err.response.data.detail) {
+            setError(err.response.data.detail);
+        } else {
+            setError(err.message || "An error occurred");
+        }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '1rem' }}>
-      <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '400px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem', background: 'linear-gradient(to right, #60a5fa, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Splitwise Clone
-          </h1>
-          <p style={{ color: '#94a3b8' }}>
-            {isLogin ? "Welcome back! Please login." : "Create an account to get started."}
-          </p>
+    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
+      {/* Decorative background elements */}
+      <Star className="absolute top-10 left-10 w-16 h-16 fill-neo-secondary stroke-[3px] -rotate-12 animate-spin-slow opacity-50" />
+      <div className="absolute top-20 right-20 w-32 h-32 bg-neo-muted border-4 border-black rotate-12 opacity-50" />
+      <div className="absolute bottom-20 left-1/4 w-24 h-24 rounded-full bg-neo-accent border-4 border-black -rotate-6 opacity-30" />
+      
+      <div className="w-full max-w-lg relative z-10">
+        <div className="text-center mb-10 -rotate-2">
+          <div className="inline-block relative">
+            <h1 className="text-6xl md:text-7xl font-black uppercase tracking-tighter text-black text-stroke relative z-10">
+              Splitwise
+            </h1>
+            <h1 className="text-6xl md:text-7xl font-black uppercase tracking-tighter text-neo-accent absolute top-1 left-1">
+              Splitwise
+            </h1>
+            <div className="absolute -bottom-4 -right-6 bg-neo-secondary border-4 border-black px-4 py-1 rotate-6 shadow-neo-sm z-20">
+              <span className="font-bold uppercase tracking-widest text-sm">Clone</span>
+            </div>
+          </div>
         </div>
 
-        {error && (
-          <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#fca5a5', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>
-            {error}
+        <NeoCard className="p-8 md:p-10 rotate-1">
+          <div className="mb-8">
+            <h2 className="text-3xl font-black uppercase">
+              {isLogin ? "Welcome Back!" : "Join the Party."}
+            </h2>
+            <p className="font-bold text-black/60 mt-2">
+              {isLogin ? "Login to track your expenses." : "Create an account to get started."}
+            </p>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit}>
-          {!isLogin && (
-            <div>
-              <label className="label">Full Name</label>
-              <input
-                type="text"
-                className="input-field"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                placeholder="John Doe"
-              />
+          {error && (
+            <div className="bg-neo-accent border-4 border-black p-4 mb-6 shadow-neo-sm font-bold">
+              {error}
             </div>
           )}
 
-          <div>
-            <label className="label">Email Address</label>
-            <input
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {!isLogin && (
+              <NeoInput
+                label="Full Name"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                placeholder="JOHN DOE"
+              />
+            )}
+
+            <NeoInput
+              label="Email Address"
               type="email"
-              className="input-field"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="you@example.com"
+              placeholder="YOU@EXAMPLE.COM"
             />
-          </div>
 
-          {!isLogin && (
-            <div>
-              <label className="label">Mobile Number (Optional)</label>
-              <input
+            {!isLogin && (
+              <NeoInput
+                label="Mobile Number (Optional)"
                 type="tel"
-                className="input-field"
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value)}
                 placeholder="+91 9876543210"
               />
-            </div>
-          )}
+            )}
 
-          <div>
-            <label className="label">Password</label>
-            <input
+            <NeoInput
+              label="Password"
               type="password"
-              className="input-field"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="••••••••"
             />
+
+            <NeoButton 
+              type="submit" 
+              className="w-full mt-8 text-lg"
+              disabled={loading}
+              variant={isLogin ? "primary" : "secondary"}
+            >
+              <span className="mr-2">
+                {loading ? "PROCESSING..." : (isLogin ? "SIGN IN" : "CREATE ACCOUNT")}
+              </span>
+              {!loading && <ArrowRight className="w-5 h-5 stroke-[4px]" />}
+            </NeoButton>
+          </form>
+
+          <div className="mt-8 pt-6 border-t-4 border-black text-center">
+            <span className="font-bold uppercase text-sm">
+              {isLogin ? "NEW HERE? " : "ALREADY IN? "}
+            </span>
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              className="font-black uppercase text-sm underline decoration-4 underline-offset-4 hover:text-neo-accent transition-colors"
+              type="button"
+            >
+              {isLogin ? "SIGN UP" : "SIGN IN"}
+            </button>
           </div>
-
-          <button 
-            type="submit" 
-            className="btn" 
-            style={{ width: '100%', marginTop: '1rem' }}
-            disabled={loading}
-          >
-            {loading ? "Processing..." : (isLogin ? "Sign In" : "Create Account")}
-          </button>
-        </form>
-
-        <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '0.875rem', color: '#94a3b8' }}>
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontWeight: '500', padding: 0 }}
-          >
-            {isLogin ? "Sign up" : "Sign in"}
-          </button>
-        </div>
+        </NeoCard>
       </div>
     </div>
   );

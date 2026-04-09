@@ -1,0 +1,41 @@
+
+> frontend@0.1.0 build
+> next build
+
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Error: Cannot apply unknown utility class `bg-neo-canvas`. Are you using CSS modules or similar and missing `@reference`? https://tailwindcss.com/docs/functions-and-directives#reference-directive
+    [2m[at onInvalidCandidate (/home/odoo/Desktop/SPLITWISE/frontend/node_modules/tailwindcss/dist/lib.js:21:1314)][0m
+    [2m[at Ee (/home/odoo/Desktop/SPLITWISE/frontend/node_modules/tailwindcss/dist/lib.js:16:37066)][0m
+    [2m[at /home/odoo/Desktop/SPLITWISE/frontend/node_modules/tailwindcss/dist/lib.js:21:355][0m
+    [2m[at _r (/home/odoo/Desktop/SPLITWISE/frontend/node_modules/tailwindcss/dist/lib.js:3:1733)][0m
+    [2m[at I (/home/odoo/Desktop/SPLITWISE/frontend/node_modules/tailwindcss/dist/lib.js:3:1377)][0m
+    [2m[at Te (/home/odoo/Desktop/SPLITWISE/frontend/node_modules/tailwindcss/dist/lib.js:21:172)][0m
+    [2m[at mn (/home/odoo/Desktop/SPLITWISE/frontend/node_modules/tailwindcss/dist/lib.js:38:294)][0m
+    [2m[at process.processTicksAndRejections (node:internal/process/task_queues:95:5)][0m
+    [2m[at async gn (/home/odoo/Desktop/SPLITWISE/frontend/node_modules/tailwindcss/dist/lib.js:38:631)][0m
+    [2m[at async Xr (/home/odoo/Desktop/SPLITWISE/frontend/node_modules/@tailwindcss/node/dist/index.js:10:3416)][0m
+
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./src/app/globals.css
+Error evaluating Node.js code
+CssSyntaxError: tailwindcss: /home/odoo/Desktop/SPLITWISE/frontend/src/app/globals.css:1:1: Cannot apply unknown utility class `bg-neo-canvas`. Are you using CSS modules or similar and missing `@reference`? https://tailwindcss.com/docs/functions-and-directives#reference-directive
+    at Input.error (node_modules/postcss/lib/input.js:135:16) [/home/odoo/Desktop/SPLITWISE/frontend/.next/build/chunks/node_modules_13sb.px._.js:4652:22]
+    at error (node_modules/postcss/lib/node.js:146:32) [/home/odoo/Desktop/SPLITWISE/frontend/.next/build/chunks/node_modules_13sb.px._.js:928:38]
+    [at Object.Once (/home/odoo/Desktop/SPLITWISE/frontend/node_modules/@tailwindcss/postcss/dist/index.js:10:6913)]
+    [at process.processTicksAndRejections (node:internal/process/task_queues:95:5)]
+    at async LazyResult.runAsync (node_modules/postcss/lib/lazy-result.js:293:11) [/home/odoo/Desktop/SPLITWISE/frontend/.next/build/chunks/node_modules_13sb.px._.js:6215:21]
+    at async transform (turbopack:///[turbopack-node]/transforms/postcss.ts:70:34) [/home/odoo/Desktop/SPLITWISE/frontend/.next/build/chunks/[root-of-the-server]__0d-m0h0._.js:146:36]
+    at async run (turbopack:///[turbopack-node]/child_process/evaluate.ts:89:23) [/home/odoo/Desktop/SPLITWISE/frontend/.next/build/chunks/[root-of-the-server]__0ubbtyl._.js:443:31]
+
+Import trace:
+  Client Component Browser:
+    ./src/app/globals.css [Client Component Browser]
+    ./src/app/layout.js [Server Component]
+
+
+    at async transform (turbopack:///[turbopack-node]/transforms/postcss.ts:70:34) [/home/odoo/Desktop/SPLITWISE/frontend/.next/build/chunks/[root-of-the-server]__0d-m0h0._.js:146:36])
+    at async run (turbopack:///[turbopack-node]/child_process/evaluate.ts:89:23) [/home/odoo/Desktop/SPLITWISE/frontend/.next/build/chunks/[root-of-the-server]__0ubbtyl._.js:443:31])
