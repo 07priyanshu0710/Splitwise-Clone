@@ -1,4 +1,4 @@
-from typing import ClassVar, Optional, List
+from typing import ClassVar, Optional, List, Union, Any
 from pydantic_settings import BaseSettings
 from pydantic import PostgresDsn, computed_field, ConfigDict, field_validator
 
@@ -20,7 +20,20 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_URL: Optional[str] = None
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    # We use Union/Any type here to prevent Pydantic from trying to JSON-parse the env var too early
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:8000"]
+
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> List[str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, str) and v.startswith("["):
+            import json
+            return json.loads(v)
+        elif isinstance(v, list):
+            return v
+        return v
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
