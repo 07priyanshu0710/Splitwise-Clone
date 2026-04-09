@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "splitwise"
     POSTGRES_PORT: int = 5432
     DATABASE_URL: str | None = None
+    POSTGRES_SSL_MODE: str = "disable"
 
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
@@ -39,7 +40,7 @@ class Settings(BaseSettings):
             host=self.POSTGRES_SERVER,
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
-        )) + "?sslmode=require"
+        )) + f"?sslmode={self.POSTGRES_SSL_MODE}"
 
     model_config = ConfigDict(case_sensitive=True, env_file=".env", extra="allow")
 
