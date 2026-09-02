@@ -11,6 +11,7 @@ from app.repositories.base import BaseRepository
 from app.models.transaction import Settlement, Balance
 from app.core.redis import redis_client
 from app.schemas.transaction import BalanceResponse
+from app.core.constants import INR_CURRENCY_CODE
 
 class SettlementRepository(BaseRepository[Settlement]):
     def __init__(self, db: Session):
@@ -21,6 +22,17 @@ class SettlementRepository(BaseRepository[Settlement]):
         self.db.add(db_obj)
         self.db.flush()
         return db_obj
+
+    def get_group_settlements(self, group_id: int) -> List[Settlement]:
+        return self.db.query(Settlement).options(
+            joinedload(Settlement.payer),
+            joinedload(Settlement.payee),
+        ).filter(
+            Settlement.group_id == group_id,
+        ).order_by(
+            Settlement.created_at.desc(),
+            Settlement.id.desc(),
+        ).all()
 
 class BalanceRepository(BaseRepository[Balance]):
     def __init__(self, db: Session):
@@ -101,7 +113,7 @@ class BalanceRepository(BaseRepository[Balance]):
             except Exception as e:
                 logger.warning(f"Redis invalidation failed: {e}")
 
-    def update_balance(self, user_id: int, owes_to_id: int, amount: float, currency_code: str = "USD", group_id: Optional[int] = None):
+    def update_balance(self, user_id: int, owes_to_id: int, amount: float, group_id: Optional[int] = None):
         if user_id == owes_to_id:
             return
 
@@ -109,17 +121,11 @@ class BalanceRepository(BaseRepository[Balance]):
         if amount_to_process <= 0:
             raise ValueError("Balance updates must be positive")
 
-        first_user_id, second_user_id = sorted((user_id, owes_to_id))
-        lock_key = f"balance:{first_user_id}:{second_user_id}:{group_id}:{currency_code}"
-        self.db.execute(
-            text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
-            {"lock_key": lock_key},
-        )
+        self._lock_balance_pair(user_id, owes_to_id, group_id)
 
         reverse_q = self.db.query(Balance).filter(
             Balance.user_id == owes_to_id,
             Balance.owes_to_id == user_id,
-            Balance.currency_code == currency_code
         )
         if group_id is not None:
             reverse_q = reverse_q.filter(Balance.group_id == group_id)
@@ -138,17 +144,58 @@ class BalanceRepository(BaseRepository[Balance]):
                 amount_to_process -= reverse_amt
                 self.db.delete(reverse_balance)
                 self.db.flush()
-                self._update_direct_balance(user_id, owes_to_id, amount_to_process, currency_code, group_id)
+                self._update_direct_balance(user_id, owes_to_id, amount_to_process, group_id)
         else:
-            self._update_direct_balance(user_id, owes_to_id, amount_to_process, currency_code, group_id)
+            self._update_direct_balance(user_id, owes_to_id, amount_to_process, group_id)
         
         self.db.flush()
 
-    def _update_direct_balance(self, user_id, owes_to_id, amount_to_process, currency_code, group_id):
+    def get_outstanding_debt_for_update(
+        self,
+        debtor_id: int,
+        creditor_id: int,
+        group_id: Optional[int] = None,
+    ) -> Optional[Balance]:
+        self._lock_balance_pair(debtor_id, creditor_id, group_id)
+
+        query = self.db.query(Balance).filter(
+            Balance.user_id == debtor_id,
+            Balance.owes_to_id == creditor_id,
+        )
+        if group_id is None:
+            query = query.filter(Balance.group_id.is_(None))
+        else:
+            query = query.filter(Balance.group_id == group_id)
+        return query.with_for_update().first()
+
+    def reduce_outstanding_debt(self, balance: Balance, amount: Decimal) -> None:
+        outstanding = Decimal(str(balance.amount))
+        if amount <= 0 or amount > outstanding:
+            raise ValueError("Settlement amount must be within the outstanding debt")
+
+        if amount == outstanding:
+            self.db.delete(balance)
+        else:
+            balance.amount = outstanding - amount
+        self.db.flush()
+
+    def _lock_balance_pair(
+        self,
+        first_user_id: int,
+        second_user_id: int,
+        group_id: Optional[int],
+    ) -> None:
+        first_user_id, second_user_id = sorted((first_user_id, second_user_id))
+        lock_key = f"balance:{first_user_id}:{second_user_id}:{group_id}"
+        self.db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+            {"lock_key": lock_key},
+        )
+
+    def _update_direct_balance(self, user_id, owes_to_id, amount_to_process, group_id):
         direct_q = self.db.query(Balance).filter(
             Balance.user_id == user_id,
             Balance.owes_to_id == owes_to_id,
-            Balance.currency_code == currency_code
         )
         if group_id is not None:
             direct_q = direct_q.filter(Balance.group_id == group_id)
@@ -165,7 +212,7 @@ class BalanceRepository(BaseRepository[Balance]):
                 user_id=user_id,
                 owes_to_id=owes_to_id,
                 amount=float(amount_to_process),
-                currency_code=currency_code,
+                currency_code=INR_CURRENCY_CODE,
                 group_id=group_id
             )
             self.db.add(new_balance)

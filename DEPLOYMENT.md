@@ -4,10 +4,10 @@ Follow these steps to deploy your production-ready Splitwise Clone using free-ti
 
 ---
 
-## 1. Database: Supabase (Postgres)
-1. Go to [Supabase](https://supabase.com/) and create a new project.
-2. In **Project Settings > Database**, find your **Connection String**.
-3. Choose the **URI** tab and copy the string (looks like `postgresql://postgres:[PASSWORD]@db.[ID].supabase.co:5432/postgres`).
+## 1. Database: Neon (Postgres)
+1. Go to [Neon](https://neon.tech/) and create a new project.
+2. Click **Connect** and disable connection pooling.
+3. Copy the direct connection string (it starts with `postgresql://` and contains `neon.tech`).
 4. **Note**: You will need this for the `DATABASE_URL` in Render.
 
 ---
@@ -26,7 +26,7 @@ Follow these steps to deploy your production-ready Splitwise Clone using free-ti
 2. Connect your GitHub repository.
 3. Choose **Docker** as the Runtime.
 4. Add the following **Environment Variables**:
-    - `DATABASE_URL`: (Your Supabase URI)
+    - `DATABASE_URL`: (Your direct Neon URI)
     - `REDIS_URL`: (Your Upstash URL)
     - `SECRET_KEY`: (A random string, e.g., `openssl rand -hex 32`)
     - `BACKEND_CORS_ORIGINS`: `["https://YOUR-VERCEL-DOMAIN.vercel.app"]`
@@ -44,5 +44,5 @@ Follow these steps to deploy your production-ready Splitwise Clone using free-ti
 
 ## 💡 Pro-Tips for Free Tiers
 - **Graceful Redis**: If you don't provide `REDIS_URL`, the app will continue to work but will be slightly slower as it fetches balances directly from the DB.
-- **Supabase SSL**: I have updated the code to automatically handle Supabase's SSL requirements (`?sslmode=require`).
+- **Neon SSL**: Keep the SSL parameters included in Neon's generated connection string.
 - **Render Cold Starts**: Free Render instances spin down after inactivity. The first request might take ~30 seconds; I have added a loading state in the frontend to handle this gracefully.

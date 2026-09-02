@@ -12,7 +12,8 @@ def mock_repos():
     return {
         "expense_repo": MagicMock(),
         "group_repo": MagicMock(),
-        "balance_repo": MagicMock()
+        "balance_repo": MagicMock(),
+        "audit_repo": MagicMock(),
     }
 
 @pytest.fixture
@@ -20,7 +21,8 @@ def expense_service(mock_repos):
     return ExpenseService(
         repository=mock_repos["expense_repo"],
         group_repository=mock_repos["group_repo"],
-        balance_repository=mock_repos["balance_repo"]
+        balance_repository=mock_repos["balance_repo"],
+        audit_repository=mock_repos["audit_repo"],
     )
 
 def test_validate_equal_split(expense_service):
@@ -70,7 +72,7 @@ def test_create_expense_forbidden_group(expense_service, mock_repos):
     expense_in = ExpenseCreate(
         description="Dinner",
         amount=100.00,
-        curvature_code="USD",
+        curvature_code="INR",
         split_type=SplitType.EQUAL,
         group_id=1,
         splits=[ExpenseSplitCreate(user_id=1)]
@@ -104,7 +106,7 @@ def test_create_expense_rolls_back_when_balance_update_fails(expense_service, mo
         id=7,
         payer_id=1,
         group_id=None,
-        curvature_code="USD",
+        curvature_code="INR",
         splits=[SimpleNamespace(user_id=2, amount=50.0)],
     )
     mock_repos["balance_repo"].update_balance.side_effect = RuntimeError("database failure")

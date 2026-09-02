@@ -1,0 +1,2 @@
+INR_CURRENCY_CODE = "INR"
+

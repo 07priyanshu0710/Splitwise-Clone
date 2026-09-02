@@ -15,6 +15,7 @@ from app.repositories.group_repository import GroupRepository
 from app.repositories.expense_repository import ExpenseRepository
 from app.repositories.transaction_repository import BalanceRepository, SettlementRepository
 from app.repositories.report_repository import ReportRepository
+from app.repositories.audit_repository import AuditRepository
 from app.services.report_service import ReportService
 from app.models.user import User
 from app.schemas.user import TokenData
@@ -34,14 +35,22 @@ def get_expense_service(db: Session = Depends(get_db)) -> ExpenseService:
     repo = ExpenseRepository(db)
     group_repo = GroupRepository(db)
     balance_repo = BalanceRepository(db)
-    return ExpenseService(repo, group_repo, balance_repo)
+    audit_repo = AuditRepository(db)
+    return ExpenseService(repo, group_repo, balance_repo, audit_repo)
 
 def get_transaction_service(db: Session = Depends(get_db)) -> TransactionService:
     settlement_repo = SettlementRepository(db)
     balance_repo = BalanceRepository(db)
     user_repo = UserRepository(db)
     group_repo = GroupRepository(db)
-    return TransactionService(settlement_repo, balance_repo, user_repo, group_repo)
+    audit_repo = AuditRepository(db)
+    return TransactionService(
+        settlement_repo,
+        balance_repo,
+        user_repo,
+        group_repo,
+        audit_repo,
+    )
 
 def get_report_service(db: Session = Depends(get_db)) -> ReportService:
     repo = ReportRepository(db)

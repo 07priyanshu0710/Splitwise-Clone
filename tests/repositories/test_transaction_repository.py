@@ -32,7 +32,7 @@ def test_balance_cache_round_trip_preserves_response_fields():
         user_id=debtor.id,
         owes_to_id=creditor.id,
         amount=12.50,
-        currency_code="USD",
+        currency_code="INR",
         group_id=4,
         last_updated=now,
         user=debtor,

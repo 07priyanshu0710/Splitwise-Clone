@@ -83,6 +83,7 @@ export const api = {
   getMe: () => fetchWithAuth('/users/me'),
 
   getMyBalances: () => fetchWithAuth('/balances/me'),
+  getGroupBalances: (groupId) => fetchWithAuth(`/balances/group/${groupId}`),
 
   getGroups: () => fetchWithAuth('/groups/'),
   getGroup: (id) => fetchWithAuth(`/groups/${id}`),
@@ -91,6 +92,9 @@ export const api = {
 
   getGroupExpenses: (groupId) => fetchWithAuth(`/expenses/group/${groupId}`),
   createExpense: (payload) => fetchWithAuth(`/expenses/`, { method: 'POST', body: JSON.stringify(payload) }),
+
+  getGroupSettlements: (groupId) => fetchWithAuth(`/settlements/group/${groupId}`),
+  createSettlement: (payload) => fetchWithAuth(`/settlements/`, { method: 'POST', body: JSON.stringify(payload) }),
 
   getMonthlySummary: () => fetchWithAuth('/reports/monthly-summary'),
 };

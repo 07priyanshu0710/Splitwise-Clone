@@ -13,7 +13,7 @@ A production-grade, high-performance expense-splitting application with **Clean 
 |-------|-----------|
 | Backend | FastAPI (Python 3.11) |
 | Frontend | Next.js 16 (React) |
-| Database | PostgreSQL (Supabase) |
+| Database | PostgreSQL (Neon) |
 | ORM | SQLAlchemy 2.0 |
 | Migrations | Alembic |
 | Auth | JWT + bcrypt |
@@ -30,9 +30,11 @@ A production-grade, high-performance expense-splitting application with **Clean 
   - **Unequal** — Exact per-user amounts with sum validation
   - **Percentage** — Percentage-based with automatic rounding correction
   - **Shares** — Proportional split based on share ratios
+- **INR-Only Ledger** — Expenses, settlements, and balances use one enforced currency: Indian Rupees (INR).
 - **Real-Time Balances** — High-performance bidirectional debt ledger with **Redis Read-Through caching** and automatic offset cancellation.
 - **Fail-Safe Resilience** — Architectural "Circuit Breaker" handles intermittent Redis or Database downtime gracefully.
-- **Settlements** — Record payments between users, automatically Reducing outstanding balances across all cached layers.
+- **Settlements** — Record full or partial payments against verified outstanding debt, reduce balances atomically, and view group payment history.
+- **Financial Audit Trail** — Expense and settlement mutations write immutable audit records in the same database transaction.
 - **Monthly Reports** — Professional aggregated spending analytics.
 
 ## Architecture
@@ -62,7 +64,7 @@ A production-grade, high-performance expense-splitting application with **Clean 
 1. Connect your GitHub repository to Render
 2. Set **Environment** to `Docker`
 3. Add environment variables:
-   - `DATABASE_URL` — Supabase connection string (Session Mode, port `6543`)
+   - `DATABASE_URL` — Direct Neon PostgreSQL connection string
    - `SECRET_KEY` — Random 32+ character string for JWT signing
 4. Deploy — Alembic migrations run automatically on boot
 
@@ -117,6 +119,7 @@ npm run dev                             # Start on :3000
 | GET | `/api/v1/balances/me` | Get all user balances |
 | GET | `/api/v1/balances/group/{id}` | Get group balances |
 | POST | `/api/v1/settlements/` | Record a settlement payment |
+| GET | `/api/v1/settlements/group/{id}` | List a group's settlement history |
 | GET | `/api/v1/reports/monthly-summary` | Monthly spending summary |
 
 ## License

@@ -16,6 +16,8 @@ export default function GroupDetail() {
   const [group, setGroup] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  const [balances, setBalances] = useState([]);
+  const [settlements, setSettlements] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [description, setDescription] = useState("");
@@ -24,18 +26,24 @@ export default function GroupDetail() {
 
   const [memberIdentifier, setMemberIdentifier] = useState("");
   const [addingMember, setAddingMember] = useState(false);
+  const [settlementAmounts, setSettlementAmounts] = useState({});
+  const [settlingBalanceId, setSettlingBalanceId] = useState(null);
 
   useEffect(() => {
     const fetchGroupData = async () => {
       try {
-        const [grpData, expData, userData] = await Promise.all([
+        const [grpData, expData, userData, balanceData, settlementData] = await Promise.all([
           api.getGroup(id),
           api.getGroupExpenses(id),
-          api.getMe()
+          api.getMe(),
+          api.getGroupBalances(id),
+          api.getGroupSettlements(id),
         ]);
         setGroup(grpData);
         setExpenses(expData);
         setCurrentUser(userData);
+        setBalances(balanceData);
+        setSettlements(settlementData);
       } catch (err) {
         console.error(err);
         if (err.message === "Unauthorized") router.push("/");
@@ -81,12 +89,50 @@ export default function GroupDetail() {
 
       setDescription("");
       setAmount("");
-      const expData = await api.getGroupExpenses(id);
+      const [expData, balanceData] = await Promise.all([
+        api.getGroupExpenses(id),
+        api.getGroupBalances(id),
+      ]);
       setExpenses(expData);
+      setBalances(balanceData);
     } catch (err) {
       alert(err.message || "Failed to create expense");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSettlement = async (e, balance) => {
+    e.preventDefault();
+    const settlementAmount = Number(settlementAmounts[balance.id]);
+    if (!Number.isFinite(settlementAmount) || settlementAmount <= 0) {
+      alert("Enter a valid settlement amount");
+      return;
+    }
+    if (settlementAmount > balance.amount) {
+      alert(`You can settle at most INR ${balance.amount.toFixed(2)}`);
+      return;
+    }
+
+    setSettlingBalanceId(balance.id);
+    try {
+      await api.createSettlement({
+        payee_id: balance.owes_to_id,
+        amount: settlementAmount,
+        group_id: Number(id),
+        description: "Group settlement",
+      });
+      const [balanceData, settlementData] = await Promise.all([
+        api.getGroupBalances(id),
+        api.getGroupSettlements(id),
+      ]);
+      setBalances(balanceData);
+      setSettlements(settlementData);
+      setSettlementAmounts((values) => ({ ...values, [balance.id]: "" }));
+    } catch (err) {
+      alert(err.message || "Failed to record settlement");
+    } finally {
+      setSettlingBalanceId(null);
     }
   };
 
@@ -110,6 +156,7 @@ export default function GroupDetail() {
   const canManageMembers = group.members.some(
     (member) => member.user_id === currentUser?.id && member.role === "admin"
   );
+  const myDebts = balances.filter((balance) => balance.user_id === currentUser?.id);
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-8 lg:p-12 pb-24">
@@ -153,7 +200,7 @@ export default function GroupDetail() {
                 required
               />
               <NeoInput
-                label="Amount ($)"
+                label="Amount (₹)"
                 type="number"
                 step="0.01"
                 placeholder="0.00"
@@ -206,11 +253,62 @@ export default function GroupDetail() {
               </p>
             )}
           </NeoCard>
+
+          {/* Settle up */}
+          <NeoCard className="p-6 md:p-8 bg-neo-secondary -rotate-1">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b-4 border-black">
+              <span className="text-3xl font-black">₹</span>
+              <h2 className="text-2xl font-black uppercase">Settle Up</h2>
+            </div>
+
+            {myDebts.length === 0 ? (
+              <p className="bg-white border-4 border-black p-4 font-bold uppercase shadow-neo-sm">
+                You have no outstanding debt in this group.
+              </p>
+            ) : (
+              <div className="space-y-6">
+                {myDebts.map((balance) => (
+                  <form
+                    key={balance.id}
+                    onSubmit={(e) => handleSettlement(e, balance)}
+                    className="bg-white border-4 border-black p-4 shadow-neo-sm space-y-4"
+                  >
+                    <p className="font-black uppercase">
+                      You owe {balance.owes_to?.full_name || balance.owes_to?.email || `User #${balance.owes_to_id}`}
+                    </p>
+                    <p className="font-black text-xl text-red-600">INR {balance.amount.toFixed(2)}</p>
+                    <NeoInput
+                      label="Amount to pay (₹)"
+                      type="number"
+                      min="0.01"
+                      max={balance.amount}
+                      step="0.01"
+                      placeholder={balance.amount.toFixed(2)}
+                      value={settlementAmounts[balance.id] || ""}
+                      onChange={(e) => setSettlementAmounts((values) => ({
+                        ...values,
+                        [balance.id]: e.target.value,
+                      }))}
+                      required
+                    />
+                    <NeoButton
+                      type="submit"
+                      variant="primary"
+                      disabled={settlingBalanceId === balance.id}
+                      className="w-full"
+                    >
+                      {settlingBalanceId === balance.id ? "SETTLING..." : "RECORD PAYMENT"}
+                    </NeoButton>
+                  </form>
+                ))}
+              </div>
+            )}
+          </NeoCard>
         </div>
 
-        {/* Right Column - Expenses List */}
-        <div>
-          <NeoCard className="p-6 md:p-8 bg-white h-full rotate-1">
+        {/* Right Column - Financial history */}
+        <div className="flex flex-col gap-8 md:gap-12">
+          <NeoCard className="p-6 md:p-8 bg-white rotate-1">
             <h2 className="text-2xl font-black uppercase mb-6 pb-4 border-b-4 border-black flex justify-between items-center">
               Recent Expenses
               <span className="bg-neo-accent border-4 border-black px-3 py-1 rotate-3 shadow-[4px_4px_0px_0px_#000]">
@@ -237,7 +335,36 @@ export default function GroupDetail() {
                       </p>
                     </div>
                     <div className="bg-neo-secondary border-4 border-black font-black text-xl px-4 py-2 rotate-2 shadow-[4px_4px_0px_0px_#000]">
-                      {exp.curvature_code} {exp.amount.toFixed(2)}
+                      INR {exp.amount.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </NeoCard>
+
+          <NeoCard className="p-6 md:p-8 bg-neo-muted -rotate-1">
+            <h2 className="text-2xl font-black uppercase mb-6 pb-4 border-b-4 border-black flex justify-between items-center">
+              Settlement History
+              <span className="bg-white border-4 border-black px-3 py-1 rotate-3 shadow-[4px_4px_0px_0px_#000]">
+                {settlements.length}
+              </span>
+            </h2>
+
+            {settlements.length === 0 ? (
+              <p className="bg-white border-4 border-black p-6 text-center font-bold uppercase shadow-neo-sm">
+                No payments recorded yet.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {settlements.map((settlement) => (
+                  <div key={settlement.id} className="bg-white border-4 border-black p-4 shadow-neo-sm">
+                    <p className="font-black uppercase">
+                      {settlement.payer?.full_name || settlement.payer?.email} paid {settlement.payee?.full_name || settlement.payee?.email}
+                    </p>
+                    <div className="flex justify-between gap-4 mt-2 font-bold text-sm uppercase">
+                      <span>{new Date(settlement.created_at).toLocaleDateString()}</span>
+                      <span>INR {settlement.amount.toFixed(2)}</span>
                     </div>
                   </div>
                 ))}

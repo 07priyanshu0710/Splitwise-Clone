@@ -5,18 +5,28 @@ from sqlalchemy.sql import func
 import datetime
 from typing import TYPE_CHECKING
 
+from app.core.constants import INR_CURRENCY_CODE
+
 if TYPE_CHECKING:
     from .user import User
     from .group import Group
 
 class Settlement(Base):
     __tablename__ = "settlements"
+    __table_args__ = (
+        CheckConstraint("currency_code = 'INR'", name="currency_inr"),
+        Index("ix_settlements_group_created_at", "group_id", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     payer_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     payee_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     amount: Mapped[float] = mapped_column(Numeric(10, 2))
-    currency_code: Mapped[str] = mapped_column(String, default="USD")
+    currency_code: Mapped[str] = mapped_column(
+        String(3),
+        default=INR_CURRENCY_CODE,
+        server_default=INR_CURRENCY_CODE,
+    )
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), nullable=True)
     description: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -30,14 +40,14 @@ class Balance(Base):
         CheckConstraint("user_id <> owes_to_id", name="different_users"),
         CheckConstraint("amount > 0", name="positive_amount"),
         Index(
-            "uq_balances_user_owes_group_currency",
+            "uq_balances_user_owes_group",
             "user_id",
             "owes_to_id",
             "group_id",
-            "currency_code",
             unique=True,
             postgresql_nulls_not_distinct=True,
         ),
+        CheckConstraint("currency_code = 'INR'", name="currency_inr"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -45,7 +55,11 @@ class Balance(Base):
     owes_to_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), nullable=True)
     amount: Mapped[float] = mapped_column(Numeric(10, 2))
-    currency_code: Mapped[str] = mapped_column(String, default="USD")
+    currency_code: Mapped[str] = mapped_column(
+        String(3),
+        default=INR_CURRENCY_CODE,
+        server_default=INR_CURRENCY_CODE,
+    )
     last_updated: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id])

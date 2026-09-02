@@ -11,7 +11,8 @@ def mock_repos():
         "settlement_repo": MagicMock(),
         "balance_repo": MagicMock(),
         "user_repo": MagicMock(),
-        "group_repo": MagicMock()
+        "group_repo": MagicMock(),
+        "audit_repo": MagicMock(),
     }
 
 @pytest.fixture
@@ -20,7 +21,8 @@ def transaction_service(mock_repos):
         settlement_repo=mock_repos["settlement_repo"],
         balance_repo=mock_repos["balance_repo"],
         user_repo=mock_repos["user_repo"],
-        group_repo=mock_repos["group_repo"]
+        group_repo=mock_repos["group_repo"],
+        audit_repo=mock_repos["audit_repo"],
     )
 
 def test_create_settlement_self(transaction_service):
@@ -70,18 +72,58 @@ def test_create_settlement_rolls_back_when_balance_update_fails(transaction_serv
     settlement_in = SettlementCreate(payee_id=2, amount=50.0)
     mock_repos["user_repo"].get.return_value = SimpleNamespace(id=2)
     mock_repos["settlement_repo"].db = MagicMock()
+    mock_repos["balance_repo"].get_outstanding_debt_for_update.return_value = SimpleNamespace(
+        amount=50.0,
+    )
     mock_repos["settlement_repo"].create_settlement.return_value = SimpleNamespace(
         id=5,
         payer_id=1,
         payee_id=2,
         amount=50.0,
-        currency_code="USD",
+        currency_code="INR",
         group_id=None,
     )
-    mock_repos["balance_repo"].update_balance.side_effect = RuntimeError("database failure")
+    mock_repos["balance_repo"].reduce_outstanding_debt.side_effect = RuntimeError("database failure")
 
     with pytest.raises(BusinessLogicError, match="Failed to create settlement"):
         transaction_service.create_settlement(settlement_in, current_user)
 
     mock_repos["settlement_repo"].db.rollback.assert_called_once_with()
     mock_repos["settlement_repo"].db.commit.assert_not_called()
+
+
+def test_create_settlement_rejects_when_no_debt_exists(transaction_service, mock_repos):
+    current_user = MagicMock(id=1)
+    settlement_in = SettlementCreate(payee_id=2, amount=10.0)
+    mock_repos["user_repo"].get.return_value = SimpleNamespace(id=2)
+    mock_repos["settlement_repo"].db = MagicMock()
+    mock_repos["balance_repo"].get_outstanding_debt_for_update.return_value = None
+
+    with pytest.raises(BusinessLogicError, match="do not owe"):
+        transaction_service.create_settlement(settlement_in, current_user)
+
+    mock_repos["settlement_repo"].create_settlement.assert_not_called()
+    mock_repos["settlement_repo"].db.rollback.assert_called_once_with()
+
+
+def test_create_settlement_rejects_overpayment(transaction_service, mock_repos):
+    current_user = MagicMock(id=1)
+    settlement_in = SettlementCreate(payee_id=2, amount=50.01)
+    mock_repos["user_repo"].get.return_value = SimpleNamespace(id=2)
+    mock_repos["settlement_repo"].db = MagicMock()
+    mock_repos["balance_repo"].get_outstanding_debt_for_update.return_value = SimpleNamespace(
+        amount=50.0,
+    )
+
+    with pytest.raises(BusinessLogicError, match="exceeds"):
+        transaction_service.create_settlement(settlement_in, current_user)
+
+    mock_repos["settlement_repo"].create_settlement.assert_not_called()
+
+
+def test_get_group_settlements_requires_membership(transaction_service, mock_repos):
+    current_user = MagicMock(id=1)
+    mock_repos["group_repo"].get_member.return_value = None
+
+    with pytest.raises(ForbiddenError, match="Not a member"):
+        transaction_service.get_group_settlements(99, current_user)

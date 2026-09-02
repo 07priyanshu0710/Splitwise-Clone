@@ -1,10 +1,12 @@
 from app.db.base_class import Base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey, DateTime, Numeric, Enum as SAEnum
+from sqlalchemy import String, ForeignKey, DateTime, Numeric, Enum as SAEnum, CheckConstraint
 from sqlalchemy.sql import func
 import datetime
 from typing import TYPE_CHECKING, List
 import enum
+
+from app.core.constants import INR_CURRENCY_CODE
 
 if TYPE_CHECKING:
     from .user import User
@@ -18,11 +20,18 @@ class SplitType(str, enum.Enum):
 
 class Expense(Base):
     __tablename__ = "expenses"
+    __table_args__ = (
+        CheckConstraint("curvature_code = 'INR'", name="currency_inr"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     description: Mapped[str] = mapped_column(String)
     amount: Mapped[float] = mapped_column(Numeric(10, 2))
-    curvature_code: Mapped[str] = mapped_column(String, default="USD")
+    curvature_code: Mapped[str] = mapped_column(
+        String(3),
+        default=INR_CURRENCY_CODE,
+        server_default=INR_CURRENCY_CODE,
+    )
     date: Mapped[datetime.datetime] = mapped_column(DateTime, default=func.now())
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

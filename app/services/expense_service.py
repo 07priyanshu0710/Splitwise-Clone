@@ -1,15 +1,15 @@
-from sqlalchemy.orm import Session
 from typing import List
 from decimal import Decimal
-import logging
 
 from app.repositories.expense_repository import ExpenseRepository
 from app.repositories.group_repository import GroupRepository
 from app.repositories.transaction_repository import BalanceRepository
+from app.repositories.audit_repository import AuditRepository
 from app.schemas.expense import ExpenseCreate
 from app.models.expense import Expense, SplitType
 from app.models.user import User
 from app.core.exceptions import BusinessLogicError, NotFoundError, ForbiddenError
+from app.core.constants import INR_CURRENCY_CODE
 from app.core.logging_config import LoggerMixin
 
 class ExpenseService(LoggerMixin):
@@ -17,11 +17,13 @@ class ExpenseService(LoggerMixin):
         self, 
         repository: ExpenseRepository, 
         group_repository: GroupRepository, 
-        balance_repository: BalanceRepository
+        balance_repository: BalanceRepository,
+        audit_repository: AuditRepository,
     ):
         self.repository = repository
         self.group_repository = group_repository
         self.balance_repository = balance_repository
+        self.audit_repository = audit_repository
 
     def create_expense(self, expense_in: ExpenseCreate, current_user: User) -> Expense:
         self.logger.info(f"Creating expense: {expense_in.description} for user {current_user.id}")
@@ -71,9 +73,23 @@ class ExpenseService(LoggerMixin):
                     user_id=split.user_id,
                     owes_to_id=expense.payer_id,
                     amount=split.amount,
-                    currency_code=expense.curvature_code,
                     group_id=expense.group_id
                 )
+
+            self.audit_repository.record(
+                action="expense.created",
+                entity_type="expense",
+                entity_id=expense.id,
+                user_id=current_user.id,
+                changes={
+                    "group_id": expense.group_id,
+                    "payer_id": expense.payer_id,
+                    "amount": f"{Decimal(str(expense.amount)):.2f}",
+                    "currency_code": INR_CURRENCY_CODE,
+                    "split_type": expense.split_type.value,
+                    "participant_ids": sorted(split_user_ids),
+                },
+            )
 
             expense_id = expense.id
             payer_id = expense.payer_id

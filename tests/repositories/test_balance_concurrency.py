@@ -43,7 +43,7 @@ def test_concurrent_balance_updates_are_not_lost(session_engine, db):
         Balance.user_id == debtor_id,
         Balance.owes_to_id == creditor_id,
         Balance.group_id.is_(None),
-        Balance.currency_code == "USD",
+        Balance.currency_code == "INR",
     ).all()
     assert len(balances) == 1
     assert float(balances[0].amount) == 20.0
