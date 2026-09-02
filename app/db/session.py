@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import settings
 
-SYNC_DATABASE_URL = str(settings.SQLALCHEMY_DATABASE_URI).replace("postgresql+asyncpg", "postgresql")
+SYNC_DATABASE_URL = str(settings.SQLALCHEMY_DATABASE_URI)
 
 engine = create_engine(
     SYNC_DATABASE_URL,

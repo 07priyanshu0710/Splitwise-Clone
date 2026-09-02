@@ -1,5 +1,5 @@
 from typing import List
-import logging
+from sqlalchemy.exc import IntegrityError
 
 from app.repositories.group_repository import GroupRepository
 from app.repositories.user_repository import UserRepository
@@ -17,10 +17,18 @@ class GroupService(LoggerMixin):
         self.logger.info(f"Creating group {group_in.name} by user {user_id}")
         group_data = group_in.model_dump()
         group_data["created_by_id"] = user_id
-        group = self.repository.create(group_data)
-        self.repository.add_member(group.id, user_id, GroupMemberRole.ADMIN)
-        self.logger.info(f"Group {group.id} created")
-        return self.repository.get_with_members(group.id)
+        try:
+            group = self.repository.create_group(group_data)
+            self.repository.add_member(group.id, user_id, GroupMemberRole.ADMIN)
+            group_id = group.id
+            self.repository.db.commit()
+        except Exception as exc:
+            self.repository.db.rollback()
+            self.logger.exception("Failed to create group")
+            raise BusinessLogicError("Failed to create group") from exc
+
+        self.logger.info(f"Group {group_id} created")
+        return self.repository.get_with_members(group_id)
 
     def get_group(self, group_id: int, user_id: int) -> Group:
         member = self.repository.get_member(group_id, user_id)
@@ -58,6 +66,15 @@ class GroupService(LoggerMixin):
         if existing_member:
             raise BusinessLogicError("User is already a member of this group")
 
-        self.repository.add_member(group_id, user_to_add.id, GroupMemberRole.MEMBER)
+        try:
+            self.repository.add_member(group_id, user_to_add.id, GroupMemberRole.MEMBER)
+            self.repository.db.commit()
+        except IntegrityError as exc:
+            self.repository.db.rollback()
+            raise BusinessLogicError("User is already a member of this group") from exc
+        except Exception:
+            self.repository.db.rollback()
+            raise
+
         self.logger.info(f"User {user_to_add.id} added to group {group_id}")
         return self.repository.get_with_members(group_id)

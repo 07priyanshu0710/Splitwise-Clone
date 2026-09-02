@@ -38,10 +38,10 @@ def test_validate_equal_split(expense_service):
     # 100 / 3 = 33.33. First one gets the remainder.
     # 33.33 * 3 = 99.99. Remainder = 0.01.
     # splits[0] = 33.33 + 0.01 = 33.34
-    assert splits[0].amount == 33.34
-    assert splits[1].amount == 33.33
-    assert splits[2].amount == 33.33
-    assert sum(s.amount for s in splits) == 100.00
+    assert splits[0].amount == Decimal("33.34")
+    assert splits[1].amount == Decimal("33.33")
+    assert splits[2].amount == Decimal("33.33")
+    assert sum(s.amount for s in splits) == Decimal("100.00")
 
 def test_validate_percentage_split_success(expense_service):
     total = Decimal("200.00")
@@ -52,8 +52,8 @@ def test_validate_percentage_split_success(expense_service):
     
     expense_service._validate_percentage_split(total, splits)
     
-    assert splits[0].amount == 100.00
-    assert splits[1].amount == 100.00
+    assert splits[0].amount == Decimal("100.00")
+    assert splits[1].amount == Decimal("100.00")
 
 def test_validate_percentage_split_invalid_sum(expense_service):
     total = Decimal("200.00")
@@ -72,7 +72,7 @@ def test_create_expense_forbidden_group(expense_service, mock_repos):
     expense_in = ExpenseCreate(
         description="Dinner",
         amount=100.00,
-        curvature_code="INR",
+        currency_code="INR",
         split_type=SplitType.EQUAL,
         group_id=1,
         splits=[ExpenseSplitCreate(user_id=1)]
@@ -106,7 +106,7 @@ def test_create_expense_rolls_back_when_balance_update_fails(expense_service, mo
         id=7,
         payer_id=1,
         group_id=None,
-        curvature_code="INR",
+        currency_code="INR",
         splits=[SimpleNamespace(user_id=2, amount=50.0)],
     )
     mock_repos["balance_repo"].update_balance.side_effect = RuntimeError("database failure")

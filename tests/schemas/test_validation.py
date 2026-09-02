@@ -35,7 +35,7 @@ def test_expense_rejects_non_inr_currency():
         ExpenseCreate(
             description="Dinner",
             amount=100,
-            curvature_code="USD",
+            currency_code="USD",
             split_type=SplitType.EQUAL,
             splits=[ExpenseSplitCreate(user_id=1)],
         )
@@ -49,7 +49,17 @@ def test_expense_defaults_to_inr():
         splits=[ExpenseSplitCreate(user_id=1)],
     )
 
-    assert expense.curvature_code == "INR"
+    assert expense.currency_code == "INR"
+
+
+def test_expense_rejects_sub_cent_amounts():
+    with pytest.raises(ValidationError):
+        ExpenseCreate(
+            description="Dinner",
+            amount="0.001",
+            split_type=SplitType.EQUAL,
+            splits=[ExpenseSplitCreate(user_id=1)],
+        )
 
 
 def test_settlement_rejects_non_inr_currency():

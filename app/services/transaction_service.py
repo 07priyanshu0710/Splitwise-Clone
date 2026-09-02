@@ -85,15 +85,7 @@ class TransactionService(LoggerMixin):
                 },
             )
             settlement_id = settlement.id
-            payee_id = settlement.payee_id
-            payer_id = settlement.payer_id
-            group_id = settlement.group_id
             self.settlement_repo.db.commit()
-            self.balance_repo.invalidate_balance_cache(
-                payee_id,
-                payer_id,
-                group_id,
-            )
         except BusinessLogicError:
             self.settlement_repo.db.rollback()
             raise

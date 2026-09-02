@@ -6,11 +6,10 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: REDIS_URL
-        sync: false
       - key: BACKEND_CORS_ORIGINS
         sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: WEB_CONCURRENCY
         value: "2"
+    healthCheckPath: /health

@@ -17,7 +17,7 @@ if config.config_file_name is not None:
 
 config.set_main_option(
     "sqlalchemy.url",
-    str(settings.SQLALCHEMY_DATABASE_URI).replace("postgresql+asyncpg", "postgresql")
+    str(settings.SQLALCHEMY_DATABASE_URI)
 )
 
 target_metadata = Base.metadata

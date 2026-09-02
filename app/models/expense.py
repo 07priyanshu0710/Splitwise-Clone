@@ -1,8 +1,9 @@
 from app.db.base_class import Base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey, DateTime, Numeric, Enum as SAEnum, CheckConstraint
+from sqlalchemy import String, ForeignKey, DateTime, Numeric, Enum as SAEnum, CheckConstraint, Index
 from sqlalchemy.sql import func
 import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, List
 import enum
 
@@ -21,13 +22,14 @@ class SplitType(str, enum.Enum):
 class Expense(Base):
     __tablename__ = "expenses"
     __table_args__ = (
-        CheckConstraint("curvature_code = 'INR'", name="currency_inr"),
+        CheckConstraint("currency_code = 'INR'", name="currency_inr"),
+        Index("ix_expenses_group_created_at", "group_id", "created_at"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     description: Mapped[str] = mapped_column(String)
-    amount: Mapped[float] = mapped_column(Numeric(10, 2))
-    curvature_code: Mapped[str] = mapped_column(
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    currency_code: Mapped[str] = mapped_column(
         String(3),
         default=INR_CURRENCY_CODE,
         server_default=INR_CURRENCY_CODE,
@@ -46,13 +48,16 @@ class Expense(Base):
 
 class ExpenseSplit(Base):
     __tablename__ = "expense_splits"
+    __table_args__ = (
+        Index("ix_expense_splits_expense_id", "expense_id"),
+    )
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     expense_id: Mapped[int] = mapped_column(ForeignKey("expenses.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
-    percentage: Mapped[float] = mapped_column(Numeric(5, 2), nullable=True)
-    shares: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=True)
+    percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=True)
+    shares: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=True)
 
     expense: Mapped["Expense"] = relationship(back_populates="splits")
     user: Mapped["User"] = relationship(back_populates="expense_splits")

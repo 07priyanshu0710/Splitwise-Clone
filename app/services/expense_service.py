@@ -92,15 +92,7 @@ class ExpenseService(LoggerMixin):
             )
 
             expense_id = expense.id
-            payer_id = expense.payer_id
-            group_id = expense.group_id
             self.repository.db.commit()
-            for split in balance_updates:
-                self.balance_repository.invalidate_balance_cache(
-                    split.user_id,
-                    payer_id,
-                    group_id,
-                )
         except Exception as e:
             self.repository.db.rollback()
             self.logger.exception(f"Failed to create expense: {str(e)}")
@@ -116,9 +108,9 @@ class ExpenseService(LoggerMixin):
 
         for i, split in enumerate(splits):
             if i == 0:
-                split.amount = float(split_amount + remainder)
+                split.amount = split_amount + remainder
             else:
-                split.amount = float(split_amount)
+                split.amount = split_amount
             split.percentage = None
             split.shares = None
 
@@ -143,7 +135,7 @@ class ExpenseService(LoggerMixin):
             perc = Decimal(str(split.percentage))
             perc_sum += perc
             amt = round(total * perc / Decimal('100'), 2)
-            split.amount = float(amt)
+            split.amount = amt
             calculated_sum += amt
             split.shares = None
 
@@ -151,7 +143,7 @@ class ExpenseService(LoggerMixin):
             raise BusinessLogicError(f"Sum of percentages ({perc_sum}) does not equal 100")
 
         remainder = total - calculated_sum
-        splits[0].amount = float(Decimal(str(splits[0].amount)) + remainder)
+        splits[0].amount = Decimal(str(splits[0].amount)) + remainder
 
     def _validate_share_split(self, total: Decimal, splits: List):
         total_shares = Decimal('0')
@@ -168,11 +160,11 @@ class ExpenseService(LoggerMixin):
         for split in splits:
             shares = Decimal(str(split.shares))
             amt = round(total * shares / total_shares, 2)
-            split.amount = float(amt)
+            split.amount = amt
             calculated_sum += amt
 
         remainder = total - calculated_sum
-        splits[0].amount = float(Decimal(str(splits[0].amount)) + remainder)
+        splits[0].amount = Decimal(str(splits[0].amount)) + remainder
 
     def get_expense(self, expense_id: int, user_id: int) -> Expense:
         expense = self.repository.get_with_details(expense_id)

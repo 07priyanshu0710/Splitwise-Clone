@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Set
 from app.repositories.base import BaseRepository
 from app.models.group import Group, GroupMember, GroupMemberRole
-from app.schemas.group import GroupCreate, GroupUpdate
 
 class GroupRepository(BaseRepository[Group]):
     def __init__(self, db: Session):
@@ -16,11 +15,16 @@ class GroupRepository(BaseRepository[Group]):
     def get_user_groups(self, user_id: int) -> List[Group]:
         return self.db.query(Group).join(GroupMember).filter(GroupMember.user_id == user_id).all()
 
+    def create_group(self, obj_in: dict) -> Group:
+        group = Group(**obj_in)
+        self.db.add(group)
+        self.db.flush()
+        return group
+
     def add_member(self, group_id: int, user_id: int, role: GroupMemberRole = GroupMemberRole.MEMBER) -> GroupMember:
         member = GroupMember(group_id=group_id, user_id=user_id, role=role)
         self.db.add(member)
-        self.db.commit()
-        self.db.refresh(member)
+        self.db.flush()
         return member
 
     def get_member(self, group_id: int, user_id: int) -> Optional[GroupMember]:
@@ -37,9 +41,3 @@ class GroupRepository(BaseRepository[Group]):
             GroupMember.user_id.in_(user_ids),
         ).all()
         return {row[0] for row in rows}
-
-    def remove_member(self, group_id: int, user_id: int):
-        member = self.get_member(group_id, user_id)
-        if member:
-            self.db.delete(member)
-            self.db.commit()

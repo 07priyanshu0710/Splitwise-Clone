@@ -20,7 +20,10 @@ class ExpenseRepository(BaseRepository[Expense]):
         return self.db.query(self.model).options(
             joinedload(Expense.payer),
             joinedload(Expense.splits).joinedload(ExpenseSplit.user)
-        ).filter(self.model.group_id == group_id).all()
+        ).filter(self.model.group_id == group_id).order_by(
+            Expense.created_at.desc(),
+            Expense.id.desc(),
+        ).all()
 
     def create_with_splits(self, obj_in: dict, splits_in: List[dict], user_id: int) -> Expense:
         db_obj = Expense(**obj_in, payer_id=user_id)

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, ForeignKey, DateTime, Numeric, CheckConstraint, Index
 from sqlalchemy.sql import func
 import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from app.core.constants import INR_CURRENCY_CODE
@@ -18,10 +19,10 @@ class Settlement(Base):
         Index("ix_settlements_group_created_at", "group_id", "created_at"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     payer_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     payee_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    amount: Mapped[float] = mapped_column(Numeric(10, 2))
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     currency_code: Mapped[str] = mapped_column(
         String(3),
         default=INR_CURRENCY_CODE,
@@ -47,14 +48,16 @@ class Balance(Base):
             unique=True,
             postgresql_nulls_not_distinct=True,
         ),
+        Index("ix_balances_group_id", "group_id"),
+        Index("ix_balances_owes_to_id", "owes_to_id"),
         CheckConstraint("currency_code = 'INR'", name="currency_inr"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     owes_to_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), nullable=True)
-    amount: Mapped[float] = mapped_column(Numeric(10, 2))
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     currency_code: Mapped[str] = mapped_column(
         String(3),
         default=INR_CURRENCY_CODE,

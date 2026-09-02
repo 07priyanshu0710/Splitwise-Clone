@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    full_name: Mapped[str] = mapped_column(String, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    full_name: Mapped[str] = mapped_column(String)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     mobile_number: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True, nullable=True)
     hashed_password: Mapped[str] = mapped_column(String)

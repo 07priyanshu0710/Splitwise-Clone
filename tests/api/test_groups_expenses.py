@@ -41,7 +41,7 @@ def test_groups_and_expenses_flow(client, test_user_token_headers):
     )
     assert response.status_code == 200
     assert response.json()["amount"] == 100.0
-    assert response.json()["curvature_code"] == "INR"
+    assert response.json()["currency_code"] == "INR"
 
     # 4. Check Balances
     response = client.get(
@@ -57,15 +57,14 @@ def test_groups_and_expenses_flow(client, test_user_token_headers):
     assert owed["amount"] == 50.0
     assert owed["currency_code"] == "INR"
 
-    # The second read is served from Redis when it is available. Its shape must
-    # remain identical to the database-backed response.
-    cached_response = client.get(
+    # Repeated reads must preserve the complete response shape.
+    repeated_response = client.get(
         "/api/v1/balances/me",
         headers=test_user_token_headers["token1"]
     )
-    assert cached_response.status_code == 200
-    assert cached_response.json()[0]["last_updated"]
-    assert cached_response.json()[0]["user"]["id"] == uid2
+    assert repeated_response.status_code == 200
+    assert repeated_response.json()[0]["last_updated"]
+    assert repeated_response.json()[0]["user"]["id"] == uid2
 
     # 5. Settlement
     settlement_data = {

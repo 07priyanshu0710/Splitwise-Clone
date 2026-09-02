@@ -1,4 +1,4 @@
-from typing import Optional, List, Union, Any
+from typing import List, Union, Any
 from pydantic_settings import BaseSettings
 from pydantic import PostgresDsn, computed_field, ConfigDict, Field, field_validator
 
@@ -16,10 +16,6 @@ class Settings(BaseSettings):
     DATABASE_URL: str | None = None
     POSTGRES_SSL_MODE: str = "disable"
 
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6380
-    REDIS_DB: int = 0
-    REDIS_URL: Optional[str] = None
     # We use Union/Any type here to prevent Pydantic from trying to JSON-parse the env var too early
     BACKEND_CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:8000"]
 
@@ -50,12 +46,10 @@ class Settings(BaseSettings):
             url = self.DATABASE_URL
             if url.startswith("postgres://"):
                 url = url.replace("postgres://", "postgresql://", 1)
-            if url.startswith("postgresql://"):
-                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
             return url
 
         return str(PostgresDsn.build(
-            scheme="postgresql+asyncpg",
+            scheme="postgresql",
             username=self.POSTGRES_USER,
             password=self.POSTGRES_PASSWORD,
             host=self.POSTGRES_SERVER,

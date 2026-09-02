@@ -1,6 +1,6 @@
 # Splitwise Clone
 
-A production-grade, high-performance expense-splitting application with **Clean Architecture** (FastAPI) and a **Neo-brutalist** frontend (Next.js), featuring Redis-backed balance caching and robust cloud resilience.
+A layered expense-splitting application built with FastAPI, PostgreSQL, and a Neo-brutalist Next.js frontend.
 
 **Live Demo:**
 - 🌐 Frontend: [splitwise-clone-dusky.vercel.app](https://splitwise-clone-dusky.vercel.app)
@@ -31,10 +31,9 @@ A production-grade, high-performance expense-splitting application with **Clean 
   - **Percentage** — Percentage-based with automatic rounding correction
   - **Shares** — Proportional split based on share ratios
 - **INR-Only Ledger** — Expenses, settlements, and balances use one enforced currency: Indian Rupees (INR).
-- **Real-Time Balances** — High-performance bidirectional debt ledger with **Redis Read-Through caching** and automatic offset cancellation.
-- **Fail-Safe Resilience** — Architectural "Circuit Breaker" handles intermittent Redis or Database downtime gracefully.
+- **Real-Time Balances** — Transactional bidirectional debt ledger with automatic offset cancellation.
 - **Settlements** — Record full or partial payments against verified outstanding debt, reduce balances atomically, and view group payment history.
-- **Financial Audit Trail** — Expense and settlement mutations write immutable audit records in the same database transaction.
+- **Financial Audit Trail** — Expense and settlement mutations write audit records in the same database transaction.
 - **Monthly Reports** — Professional aggregated spending analytics.
 
 ## Architecture
@@ -91,9 +90,8 @@ alembic upgrade head                    # Apply migrations
 uvicorn app.main:app --reload           # Start on :8000
 ```
 
-The default backend settings connect to the Compose services through
-`localhost:5455` (PostgreSQL) and `localhost:6380` (Redis). Keep the virtual
-environment active for every backend command.
+The default backend settings connect to PostgreSQL through `localhost:5455`.
+Keep the virtual environment active for every backend command.
 
 ### Frontend
 ```bash

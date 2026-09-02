@@ -13,7 +13,7 @@ from app.db.base_class import Base
 from app.core.config import settings
 
 TEST_DB_NAME = "splitwise_test"
-SQLALCHEMY_DATABASE_URL = str(settings.SQLALCHEMY_DATABASE_URI).replace("postgresql+asyncpg", "postgresql")
+SQLALCHEMY_DATABASE_URL = str(settings.SQLALCHEMY_DATABASE_URI)
 TEST_SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.rsplit('/', 1)[0] + f"/{TEST_DB_NAME}"
 
 @pytest.fixture(scope="session")

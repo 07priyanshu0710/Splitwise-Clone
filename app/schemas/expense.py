@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Literal
 from datetime import datetime
@@ -8,14 +9,14 @@ from app.core.constants import INR_CURRENCY_CODE
 
 class ExpenseSplitCreate(BaseModel):
     user_id: int
-    amount: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
-    percentage: Optional[float] = Field(default=None, ge=0, le=100, allow_inf_nan=False)
-    shares: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+    amount: Optional[Decimal] = Field(default=None, ge=0, max_digits=10, decimal_places=2)
+    percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
+    shares: Optional[Decimal] = Field(default=None, ge=0, max_digits=10, decimal_places=2)
 
 class ExpenseCreate(BaseModel):
     description: str = Field(..., min_length=1, max_length=255)
-    amount: float = Field(..., gt=0, allow_inf_nan=False)
-    curvature_code: Literal["INR"] = INR_CURRENCY_CODE
+    amount: Decimal = Field(..., gt=0, max_digits=10, decimal_places=2)
+    currency_code: Literal["INR"] = INR_CURRENCY_CODE
     group_id: Optional[int] = None
     split_type: SplitType
     splits: List[ExpenseSplitCreate] = Field(..., min_length=1)
@@ -34,7 +35,7 @@ class ExpenseResponse(BaseModel):
     id: int
     description: str
     amount: float
-    curvature_code: Literal["INR"]
+    currency_code: Literal["INR"]
     date: datetime
     created_at: datetime
     payer_id: int
