@@ -4,6 +4,18 @@ from app.core.config import settings
 # Initialize redis client
 redis_client = None
 
+BALANCE_CACHE_PATTERNS = ("user_balances:*", "group_balances:*")
+
+
+def clear_balance_cache(client) -> int:
+    """Remove balance entries that may have survived a Redis outage."""
+    deleted = 0
+    for pattern in BALANCE_CACHE_PATTERNS:
+        keys = list(client.scan_iter(match=pattern, count=100))
+        if keys:
+            deleted += client.delete(*keys)
+    return deleted
+
 try:
     if settings.REDIS_URL:
         # For Upstash/Production - Clean the URL to handle trailing spaces or quotes from dashboard copy-pastes
@@ -25,7 +37,8 @@ try:
         )
     # Ping to verify connection immediately
     redis_client.ping()
-    print("✅ Redis connection established.")
+    cleared_keys = clear_balance_cache(redis_client)
+    print(f"✅ Redis connection established. Cleared {cleared_keys} stale balance cache entries.")
 except Exception as e:
     print(f"⚠️ Redis not available ({e}). Falling back to database-only mode.")
     redis_client = None

@@ -87,3 +87,67 @@ def test_groups_and_expenses_flow(client, test_user_token_headers):
         headers=test_user_token_headers["token1"]
     )
     assert len(response.json()) == 0
+
+
+def test_opposite_expenses_net_toward_the_larger_payer(client, test_user_token_headers):
+    response = client.post(
+        "/api/v1/groups/",
+        headers=test_user_token_headers["token1"],
+        json={"name": "Two Payers"},
+    )
+    assert response.status_code == 200
+    group_id = response.json()["id"]
+
+    response = client.post(
+        f"/api/v1/groups/{group_id}/members",
+        headers=test_user_token_headers["token1"],
+        json={"identifier": test_user_token_headers["email2"]},
+    )
+    assert response.status_code == 200
+
+    user1_id = test_user_token_headers["user1_id"]
+    user2_id = test_user_token_headers["user2_id"]
+    splits = [{"user_id": user1_id}, {"user_id": user2_id}]
+
+    response = client.post(
+        "/api/v1/expenses/",
+        headers=test_user_token_headers["token1"],
+        json={
+            "description": "Food",
+            "amount": 200.0,
+            "group_id": group_id,
+            "split_type": "equal",
+            "splits": splits,
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.post(
+        "/api/v1/expenses/",
+        headers=test_user_token_headers["token2"],
+        json={
+            "description": "Taxi",
+            "amount": 100.0,
+            "group_id": group_id,
+            "split_type": "equal",
+            "splits": splits,
+        },
+    )
+    assert response.status_code == 200
+
+    user1_balances = client.get(
+        "/api/v1/balances/me",
+        headers=test_user_token_headers["token1"],
+    )
+    user2_balances = client.get(
+        "/api/v1/balances/me",
+        headers=test_user_token_headers["token2"],
+    )
+
+    assert user1_balances.status_code == 200
+    assert user2_balances.status_code == 200
+    assert user1_balances.json() == user2_balances.json()
+    assert len(user1_balances.json()) == 1
+    assert user1_balances.json()[0]["user_id"] == user2_id
+    assert user1_balances.json()[0]["owes_to_id"] == user1_id
+    assert user1_balances.json()[0]["amount"] == 50.0
