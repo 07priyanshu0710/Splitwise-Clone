@@ -24,7 +24,7 @@ export default function Home() {
       router.push("/dashboard");
     }
     // Warm up the backend while user fills in the form
-    fetch('https://splitwise-clone-96iy.onrender.com/health').catch(() => {});
+    api.health().catch(() => {});
   }, [router]);
 
   const handleSubmit = async (e) => {

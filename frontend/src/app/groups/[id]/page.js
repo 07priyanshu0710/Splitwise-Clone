@@ -14,6 +14,7 @@ export default function GroupDetail() {
   const router = useRouter();
 
   const [group, setGroup] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,24 +26,26 @@ export default function GroupDetail() {
   const [addingMember, setAddingMember] = useState(false);
 
   useEffect(() => {
-    fetchGroupData();
-  }, [id]);
+    const fetchGroupData = async () => {
+      try {
+        const [grpData, expData, userData] = await Promise.all([
+          api.getGroup(id),
+          api.getGroupExpenses(id),
+          api.getMe()
+        ]);
+        setGroup(grpData);
+        setExpenses(expData);
+        setCurrentUser(userData);
+      } catch (err) {
+        console.error(err);
+        if (err.message === "Unauthorized") router.push("/");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const fetchGroupData = async () => {
-    try {
-      const [grpData, expData] = await Promise.all([
-        api.getGroup(id),
-        api.getGroupExpenses(id)
-      ]);
-      setGroup(grpData);
-      setExpenses(expData);
-    } catch (err) {
-      console.error(err);
-      if (err.message === "Unauthorized") router.push("/");
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchGroupData();
+  }, [id, router]);
 
   const handleAddMember = async (e) => {
     e.preventDefault();
@@ -102,6 +105,10 @@ export default function GroupDetail() {
     <div className="min-h-screen flex items-center justify-center">
       <NeoCard className="p-8 bg-red-400 rotate-2"><h2 className="text-2xl font-black">GROUP NOT FOUND</h2></NeoCard>
     </div>
+  );
+
+  const canManageMembers = group.members.some(
+    (member) => member.user_id === currentUser?.id && member.role === "admin"
   );
 
   return (
@@ -176,22 +183,28 @@ export default function GroupDetail() {
               ))}
             </div>
 
-            <form onSubmit={handleAddMember} className="border-t-4 border-black pt-6">
-              <h3 className="font-black uppercase mb-4 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 stroke-[3px]" /> Add Member
-              </h3>
-              <div className="space-y-4">
-                <NeoInput
-                  placeholder="FRIEND@EXAMPLE.COM OR +91 98765..."
-                  value={memberIdentifier}
-                  onChange={(e) => setMemberIdentifier(e.target.value)}
-                  required
-                />
-                <NeoButton type="submit" variant="secondary" disabled={addingMember} className="w-full">
-                  {addingMember ? "ADDING..." : "ADD MEMBER"}
-                </NeoButton>
-              </div>
-            </form>
+            {canManageMembers ? (
+              <form onSubmit={handleAddMember} className="border-t-4 border-black pt-6">
+                <h3 className="font-black uppercase mb-4 flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 stroke-[3px]" /> Add Member
+                </h3>
+                <div className="space-y-4">
+                  <NeoInput
+                    placeholder="FRIEND@EXAMPLE.COM OR +91 98765..."
+                    value={memberIdentifier}
+                    onChange={(e) => setMemberIdentifier(e.target.value)}
+                    required
+                  />
+                  <NeoButton type="submit" variant="secondary" disabled={addingMember} className="w-full">
+                    {addingMember ? "ADDING..." : "ADD MEMBER"}
+                  </NeoButton>
+                </div>
+              </form>
+            ) : (
+              <p className="border-t-4 border-black pt-6 font-bold uppercase text-sm tracking-widest">
+                Only group admins can add members.
+              </p>
+            )}
           </NeoCard>
         </div>
 
@@ -224,7 +237,7 @@ export default function GroupDetail() {
                       </p>
                     </div>
                     <div className="bg-neo-secondary border-4 border-black font-black text-xl px-4 py-2 rotate-2 shadow-[4px_4px_0px_0px_#000]">
-                      ${exp.amount.toFixed(2)}
+                      {exp.curvature_code} {exp.amount.toFixed(2)}
                     </div>
                   </div>
                 ))}

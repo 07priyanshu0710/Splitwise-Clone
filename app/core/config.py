@@ -1,38 +1,33 @@
-from typing import ClassVar, Optional, List, Union, Any
+from typing import Optional, List, Union, Any
 from pydantic_settings import BaseSettings
-from pydantic import PostgresDsn, computed_field, ConfigDict, field_validator
+from pydantic import PostgresDsn, computed_field, ConfigDict, Field, field_validator
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Splitwise Clone"
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = "YOUR_SUPER_SECRET_KEY_HERE"
+    SECRET_KEY: str = Field(..., min_length=32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
 
-    POSTGRES_SERVER: str = "db"
+    POSTGRES_SERVER: str = "localhost"
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "splitwise"
-    POSTGRES_PORT: int = 5432
+    POSTGRES_PORT: int = 5455
     DATABASE_URL: str | None = None
     POSTGRES_SSL_MODE: str = "disable"
 
-    REDIS_HOST: str = "redis"
-    REDIS_PORT: int = 6379
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6380
     REDIS_DB: int = 0
     REDIS_URL: Optional[str] = None
     # We use Union/Any type here to prevent Pydantic from trying to JSON-parse the env var too early
     BACKEND_CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:8000"]
 
-    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @field_validator("SECRET_KEY")
     @classmethod
-    def assemble_cors_origins(cls, v: Any) -> List[str]:
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, str) and v.startswith("["):
-            import json
-            return json.loads(v)
-        elif isinstance(v, list):
-            return v
+    def validate_secret_key(cls, v: str) -> str:
+        if v == "YOUR_SUPER_SECRET_KEY_HERE":
+            raise ValueError("SECRET_KEY must not use the public placeholder")
         return v
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")

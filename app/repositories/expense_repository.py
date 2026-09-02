@@ -23,15 +23,11 @@ class ExpenseRepository(BaseRepository[Expense]):
         ).filter(self.model.group_id == group_id).all()
 
     def create_with_splits(self, obj_in: dict, splits_in: List[dict], user_id: int) -> Expense:
-        db_obj = Expense(**obj_in)
-        db_obj.payer_id = user_id
+        db_obj = Expense(**obj_in, payer_id=user_id)
         self.db.add(db_obj)
-        self.db.flush() # Get the expense ID
 
         for split_data in splits_in:
-            db_split = ExpenseSplit(**split_data, expense_id=db_obj.id)
-            self.db.add(db_split)
+            db_obj.splits.append(ExpenseSplit(**split_data))
 
-        self.db.commit()
-        self.db.refresh(db_obj)
+        self.db.flush()
         return db_obj

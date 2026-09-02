@@ -82,11 +82,16 @@ A production-grade, high-performance expense-splitting application with **Clean 
 ### Backend
 ```bash
 docker compose up -d                    # Start PostgreSQL
-python -m venv venv && source venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+export SECRET_KEY="$(openssl rand -hex 32)"
 alembic upgrade head                    # Apply migrations
 uvicorn app.main:app --reload           # Start on :8000
 ```
+
+The default backend settings connect to the Compose services through
+`localhost:5455` (PostgreSQL) and `localhost:6380` (Redis). Keep the virtual
+environment active for every backend command.
 
 ### Frontend
 ```bash

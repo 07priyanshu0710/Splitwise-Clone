@@ -43,6 +43,14 @@ class UserService(LoggerMixin):
 
     def update_user(self, user: User, user_in: Any) -> User:
         user_data = user_in.model_dump(exclude_unset=True)
+        if "email" in user_data and user_data["email"] != user.email:
+            existing_user = self.repository.get_by_email(user_data["email"])
+            if existing_user:
+                raise BusinessLogicError("Email already registered")
+        if "mobile_number" in user_data and user_data["mobile_number"] != user.mobile_number:
+            mobile_number = user_data["mobile_number"]
+            if mobile_number and self.repository.get_by_mobile_number(mobile_number):
+                raise BusinessLogicError("Mobile number already registered")
         if "password" in user_data and user_data["password"]:
             hashed_password = security.get_password_hash(user_data["password"])
             user_data["hashed_password"] = hashed_password

@@ -1,4 +1,5 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://splitwise-clone-96iy.onrender.com/api/v1';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_ORIGIN = BASE_URL.replace(/\/api\/v1\/?$/, '');
 
 export const getToken = () => {
   if (typeof window !== 'undefined') {
@@ -58,6 +59,11 @@ async function fetchWithAuth(endpoint, options = {}) {
 }
 
 export const api = {
+  health: async () => {
+    const response = await fetch(`${API_ORIGIN}/health`);
+    if (!response.ok) throw new Error('Health check failed');
+    return response.json();
+  },
   login: (username, password) => {
     const formData = new URLSearchParams();
     formData.append('username', username);

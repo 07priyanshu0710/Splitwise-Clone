@@ -25,15 +25,23 @@ class ExpenseService(LoggerMixin):
 
     def create_expense(self, expense_in: ExpenseCreate, current_user: User) -> Expense:
         self.logger.info(f"Creating expense: {expense_in.description} for user {current_user.id}")
+
+        split_user_ids = [split.user_id for split in expense_in.splits]
+        if len(split_user_ids) != len(set(split_user_ids)):
+            raise BusinessLogicError("Each user can appear only once in an expense split")
         
         if expense_in.group_id is not None:
             member = self.group_repository.get_member(expense_in.group_id, current_user.id)
             if not member:
                 self.logger.warning(f"User {current_user.id} tried to add expense to group {expense_in.group_id} they are not in")
                 raise ForbiddenError("You can only add expenses to groups you are in")
-
-        if not expense_in.splits:
-            raise BusinessLogicError("At least one split must be provided")
+            member_user_ids = self.group_repository.get_member_user_ids(
+                expense_in.group_id,
+                set(split_user_ids),
+            )
+            invalid_user_ids = set(split_user_ids) - member_user_ids
+            if invalid_user_ids:
+                raise ForbiddenError("All expense participants must be members of the group")
 
         total_amount = Decimal(str(expense_in.amount))
 
@@ -53,22 +61,37 @@ class ExpenseService(LoggerMixin):
         
         try:
             expense = self.repository.create_with_splits(expense_data, splits_data, current_user.id)
-            self.logger.info(f"Expense {expense.id} created successfully")
 
-            for split in expense.splits:
-                if split.user_id != expense.payer_id and split.amount > 0:
-                    self.balance_repository.update_balance(
-                        user_id=split.user_id,
-                        owes_to_id=expense.payer_id,
-                        amount=split.amount,
-                        currency_code=expense.curvature_code,
-                        group_id=expense.group_id
-                    )
-            
-            return self.repository.get_with_details(expense.id)
+            balance_updates = [
+                split for split in expense.splits
+                if split.user_id != expense.payer_id and split.amount > 0
+            ]
+            for split in sorted(balance_updates, key=lambda item: item.user_id):
+                self.balance_repository.update_balance(
+                    user_id=split.user_id,
+                    owes_to_id=expense.payer_id,
+                    amount=split.amount,
+                    currency_code=expense.curvature_code,
+                    group_id=expense.group_id
+                )
+
+            expense_id = expense.id
+            payer_id = expense.payer_id
+            group_id = expense.group_id
+            self.repository.db.commit()
+            for split in balance_updates:
+                self.balance_repository.invalidate_balance_cache(
+                    split.user_id,
+                    payer_id,
+                    group_id,
+                )
         except Exception as e:
+            self.repository.db.rollback()
             self.logger.exception(f"Failed to create expense: {str(e)}")
-            raise BusinessLogicError(f"Failed to create expense: {str(e)}")
+            raise BusinessLogicError("Failed to create expense") from e
+
+        self.logger.info(f"Expense {expense_id} created successfully")
+        return self.repository.get_with_details(expense_id)
 
     def _validate_equal_split(self, total: Decimal, splits: List):
         count = len(splits)

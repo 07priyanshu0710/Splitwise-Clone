@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from typing import List, Optional
 from decimal import Decimal
 import json
@@ -10,32 +10,30 @@ logger = logging.getLogger(__name__)
 from app.repositories.base import BaseRepository
 from app.models.transaction import Settlement, Balance
 from app.core.redis import redis_client
+from app.schemas.transaction import BalanceResponse
 
 class SettlementRepository(BaseRepository[Settlement]):
     def __init__(self, db: Session):
         super().__init__(Settlement, db)
 
     def create_settlement(self, obj_in: dict, payer_id: int) -> Settlement:
-        db_obj = Settlement(**obj_in)
-        db_obj.payer_id = payer_id
+        db_obj = Settlement(**obj_in, payer_id=payer_id)
         self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
+        self.db.flush()
         return db_obj
 
 class BalanceRepository(BaseRepository[Balance]):
     def __init__(self, db: Session):
         super().__init__(Balance, db)
 
-    def get_user_balances(self, user_id: int) -> List[Balance]:
+    def get_user_balances(self, user_id: int) -> List[BalanceResponse]:
         cache_key = f"user_balances:{user_id}"
         if redis_client:
             try:
                 cached = redis_client.get(cache_key)
                 if cached:
                     logger.info(f"Redis cache hit for user_balances:{user_id}")
-                    data = json.loads(cached)
-                    return [Balance(**b) for b in data]
+                    return self._deserialize_balances(cached)
             except Exception as e:
                 logger.warning(f"Redis error in get_user_balances: {e}")
 
@@ -47,77 +45,88 @@ class BalanceRepository(BaseRepository[Balance]):
             or_(Balance.user_id == user_id, Balance.owes_to_id == user_id)
         ).all()
         
+        responses = [BalanceResponse.model_validate(balance) for balance in balances]
         if redis_client:
             try:
-                cache_data = [
-                    {
-                        "id": b.id, "user_id": b.user_id, "owes_to_id": b.owes_to_id,
-                        "amount": float(b.amount), "currency_code": b.currency_code,
-                        "group_id": b.group_id
-                    } for b in balances
-                ]
-                redis_client.setex(cache_key, 3600, json.dumps(cache_data))
+                redis_client.set(cache_key, self._serialize_balances(responses), ex=3600)
             except Exception as e:
                 logger.warning(f"Redis error during caching: {e}")
         
-        return balances
+        return responses
 
-    def get_group_balances(self, group_id: int) -> List[Balance]:
+    def get_group_balances(self, group_id: int) -> List[BalanceResponse]:
         cache_key = f"group_balances:{group_id}"
         if redis_client:
             try:
                 cached = redis_client.get(cache_key)
                 if cached:
-                    data = json.loads(cached)
-                    return [Balance(**b) for b in data]
+                    return self._deserialize_balances(cached)
             except Exception as e:
                 logger.warning(f"Redis error in get_group_balances: {e}")
             
-        balances = self.db.query(Balance).filter(Balance.group_id == group_id).all()
+        balances = self.db.query(Balance).options(
+            joinedload(Balance.user),
+            joinedload(Balance.owes_to)
+        ).filter(Balance.group_id == group_id).all()
         
+        responses = [BalanceResponse.model_validate(balance) for balance in balances]
         if redis_client:
             try:
-                cache_data = [
-                    {
-                        "id": b.id, "user_id": b.user_id, "owes_to_id": b.owes_to_id,
-                        "amount": float(b.amount), "currency_code": b.currency_code,
-                        "group_id": b.group_id
-                    } for b in balances
-                ]
-                redis_client.setex(cache_key, 3600, json.dumps(cache_data))
+                redis_client.set(cache_key, self._serialize_balances(responses), ex=3600)
             except Exception as e:
                 logger.warning(f"Redis error during caching: {e}")
                 
-        return balances
+        return responses
 
-    def _invalidate_balance_cache(self, user_id: int, owes_to_id: int, group_id: Optional[int] = None):
+    @staticmethod
+    def _serialize_balances(balances: List[Balance | BalanceResponse]) -> str:
+        payload = [
+            BalanceResponse.model_validate(balance).model_dump(mode="json")
+            for balance in balances
+        ]
+        return json.dumps(payload)
+
+    @staticmethod
+    def _deserialize_balances(payload: str) -> List[BalanceResponse]:
+        return [BalanceResponse.model_validate(item) for item in json.loads(payload)]
+
+    def invalidate_balance_cache(self, user_id: int, owes_to_id: int, group_id: Optional[int] = None):
         if redis_client:
             try:
                 logger.info(f"Invalidating Redis cache: user:{user_id}, owes:{owes_to_id}, group:{group_id}")
                 redis_client.delete(f"user_balances:{user_id}")
                 redis_client.delete(f"user_balances:{owes_to_id}")
-                if group_id:
+                if group_id is not None:
                     redis_client.delete(f"group_balances:{group_id}")
             except Exception as e:
                 logger.warning(f"Redis invalidation failed: {e}")
 
     def update_balance(self, user_id: int, owes_to_id: int, amount: float, currency_code: str = "USD", group_id: Optional[int] = None):
-        if user_id == owes_to_id or amount == 0:
+        if user_id == owes_to_id:
             return
 
         amount_to_process = Decimal(str(amount))
+        if amount_to_process <= 0:
+            raise ValueError("Balance updates must be positive")
+
+        first_user_id, second_user_id = sorted((user_id, owes_to_id))
+        lock_key = f"balance:{first_user_id}:{second_user_id}:{group_id}:{currency_code}"
+        self.db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+            {"lock_key": lock_key},
+        )
 
         reverse_q = self.db.query(Balance).filter(
             Balance.user_id == owes_to_id,
             Balance.owes_to_id == user_id,
             Balance.currency_code == currency_code
         )
-        if group_id:
+        if group_id is not None:
             reverse_q = reverse_q.filter(Balance.group_id == group_id)
         else:
             reverse_q = reverse_q.filter(Balance.group_id.is_(None))
 
-        reverse_balance = reverse_q.first()
+        reverse_balance = reverse_q.with_for_update().first()
 
         if reverse_balance:
             reverse_amt = Decimal(str(reverse_balance.amount))
@@ -133,8 +142,7 @@ class BalanceRepository(BaseRepository[Balance]):
         else:
             self._update_direct_balance(user_id, owes_to_id, amount_to_process, currency_code, group_id)
         
-        self.db.commit()
-        self._invalidate_balance_cache(user_id, owes_to_id, group_id)
+        self.db.flush()
 
     def _update_direct_balance(self, user_id, owes_to_id, amount_to_process, currency_code, group_id):
         direct_q = self.db.query(Balance).filter(
@@ -142,12 +150,12 @@ class BalanceRepository(BaseRepository[Balance]):
             Balance.owes_to_id == owes_to_id,
             Balance.currency_code == currency_code
         )
-        if group_id:
+        if group_id is not None:
             direct_q = direct_q.filter(Balance.group_id == group_id)
         else:
             direct_q = direct_q.filter(Balance.group_id.is_(None))
 
-        direct_balance = direct_q.first()
+        direct_balance = direct_q.with_for_update().first()
 
         if direct_balance:
             direct_amt = Decimal(str(direct_balance.amount))

@@ -1,8 +1,11 @@
 import pytest
+import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 import uuid
+
+os.environ.setdefault("SECRET_KEY", "test-secret-key-with-at-least-32-characters")
 
 from app.main import app
 from app.db.session import get_db

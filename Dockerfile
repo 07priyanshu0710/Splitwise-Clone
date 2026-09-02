@@ -18,6 +18,8 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libpq-dev && \
@@ -25,7 +27,7 @@ RUN apt-get update && \
 
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/requirements.txt .
-RUN pip install --no-cache /wheels/*
+RUN python -m venv "$VIRTUAL_ENV" && pip install --no-cache /wheels/*
 
 COPY ./app ./app
 COPY ./alembic.ini .

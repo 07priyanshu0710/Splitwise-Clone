@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
+from types import SimpleNamespace
 from decimal import Decimal
 from app.services.expense_service import ExpenseService
 from app.schemas.expense import ExpenseCreate, ExpenseSplitCreate
@@ -79,3 +80,44 @@ def test_create_expense_forbidden_group(expense_service, mock_repos):
     
     with pytest.raises(ForbiddenError):
         expense_service.create_expense(expense_in, current_user)
+
+
+def test_create_expense_rejects_non_group_participant(expense_service, mock_repos):
+    mock_repos["group_repo"].get_member.return_value = MagicMock()
+    mock_repos["group_repo"].get_member_user_ids.return_value = {1}
+    expense_in = ExpenseCreate(
+        description="Dinner",
+        amount=100.00,
+        split_type=SplitType.EQUAL,
+        group_id=1,
+        splits=[ExpenseSplitCreate(user_id=1), ExpenseSplitCreate(user_id=2)]
+    )
+    current_user = MagicMock(id=1)
+
+    with pytest.raises(ForbiddenError, match="participants"):
+        expense_service.create_expense(expense_in, current_user)
+
+
+def test_create_expense_rolls_back_when_balance_update_fails(expense_service, mock_repos):
+    mock_repos["expense_repo"].db = MagicMock()
+    mock_repos["expense_repo"].create_with_splits.return_value = SimpleNamespace(
+        id=7,
+        payer_id=1,
+        group_id=None,
+        curvature_code="USD",
+        splits=[SimpleNamespace(user_id=2, amount=50.0)],
+    )
+    mock_repos["balance_repo"].update_balance.side_effect = RuntimeError("database failure")
+    expense_in = ExpenseCreate(
+        description="Dinner",
+        amount=100.00,
+        split_type=SplitType.EQUAL,
+        splits=[ExpenseSplitCreate(user_id=1), ExpenseSplitCreate(user_id=2)]
+    )
+    current_user = MagicMock(id=1)
+
+    with pytest.raises(BusinessLogicError, match="Failed to create expense"):
+        expense_service.create_expense(expense_in, current_user)
+
+    mock_repos["expense_repo"].db.rollback.assert_called_once_with()
+    mock_repos["expense_repo"].db.commit.assert_not_called()

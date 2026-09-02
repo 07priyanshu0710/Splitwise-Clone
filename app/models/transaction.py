@@ -1,6 +1,6 @@
 from app.db.base_class import Base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey, DateTime, Numeric
+from sqlalchemy import String, ForeignKey, DateTime, Numeric, CheckConstraint, Index
 from sqlalchemy.sql import func
 import datetime
 from typing import TYPE_CHECKING
@@ -26,6 +26,19 @@ class Settlement(Base):
 
 class Balance(Base):
     __tablename__ = "balances"
+    __table_args__ = (
+        CheckConstraint("user_id <> owes_to_id", name="different_users"),
+        CheckConstraint("amount > 0", name="positive_amount"),
+        Index(
+            "uq_balances_user_owes_group_currency",
+            "user_id",
+            "owes_to_id",
+            "group_id",
+            "currency_code",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))

@@ -7,17 +7,17 @@ from app.schemas.group import GroupListResponse
 
 class ExpenseSplitCreate(BaseModel):
     user_id: int
-    amount: Optional[float] = None
-    percentage: Optional[float] = None
-    shares: Optional[float] = None
+    amount: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+    percentage: Optional[float] = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+    shares: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
 
 class ExpenseCreate(BaseModel):
     description: str = Field(..., min_length=1, max_length=255)
-    amount: float = Field(..., gt=0)
+    amount: float = Field(..., gt=0, allow_inf_nan=False)
     curvature_code: str = Field(default="USD", max_length=10)
     group_id: Optional[int] = None
     split_type: SplitType
-    splits: List[ExpenseSplitCreate]
+    splits: List[ExpenseSplitCreate] = Field(..., min_length=1)
 
 class ExpenseSplitResponse(BaseModel):
     id: int

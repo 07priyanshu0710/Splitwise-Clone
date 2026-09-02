@@ -57,6 +57,16 @@ def test_groups_and_expenses_flow(client, test_user_token_headers):
     assert owed["owes_to_id"] == uid1
     assert owed["amount"] == 50.0
 
+    # The second read is served from Redis when it is available. Its shape must
+    # remain identical to the database-backed response.
+    cached_response = client.get(
+        "/api/v1/balances/me",
+        headers=test_user_token_headers["token1"]
+    )
+    assert cached_response.status_code == 200
+    assert cached_response.json()[0]["last_updated"]
+    assert cached_response.json()[0]["user"]["id"] == uid2
+
     # 5. Settlement
     settlement_data = {
         "payee_id": uid1,

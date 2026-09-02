@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
+from types import SimpleNamespace
 from app.services.transaction_service import TransactionService
 from app.schemas.transaction import SettlementCreate
 from app.core.exceptions import BusinessLogicError, ForbiddenError
@@ -52,3 +53,35 @@ def test_get_group_balances_success(transaction_service, mock_repos):
     
     assert result == []
     mock_repos["balance_repo"].get_group_balances.assert_called_once_with(group_id)
+
+
+def test_create_settlement_rejects_non_member_payee(transaction_service, mock_repos):
+    current_user = MagicMock(id=1)
+    settlement_in = SettlementCreate(payee_id=2, amount=50.0, group_id=99)
+    mock_repos["group_repo"].get_member.side_effect = [MagicMock(), None]
+    mock_repos["user_repo"].get.return_value = SimpleNamespace(id=2)
+
+    with pytest.raises(ForbiddenError, match="Payee"):
+        transaction_service.create_settlement(settlement_in, current_user)
+
+
+def test_create_settlement_rolls_back_when_balance_update_fails(transaction_service, mock_repos):
+    current_user = MagicMock(id=1)
+    settlement_in = SettlementCreate(payee_id=2, amount=50.0)
+    mock_repos["user_repo"].get.return_value = SimpleNamespace(id=2)
+    mock_repos["settlement_repo"].db = MagicMock()
+    mock_repos["settlement_repo"].create_settlement.return_value = SimpleNamespace(
+        id=5,
+        payer_id=1,
+        payee_id=2,
+        amount=50.0,
+        currency_code="USD",
+        group_id=None,
+    )
+    mock_repos["balance_repo"].update_balance.side_effect = RuntimeError("database failure")
+
+    with pytest.raises(BusinessLogicError, match="Failed to create settlement"):
+        transaction_service.create_settlement(settlement_in, current_user)
+
+    mock_repos["settlement_repo"].db.rollback.assert_called_once_with()
+    mock_repos["settlement_repo"].db.commit.assert_not_called()

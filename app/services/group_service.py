@@ -41,6 +41,8 @@ class GroupService(LoggerMixin):
         requester = self.repository.get_member(group_id, requester_id)
         if not requester:
             raise ForbiddenError("Not a member of this group")
+        if requester.role != GroupMemberRole.ADMIN:
+            raise ForbiddenError("Only group admins can add members")
 
         identifier = member_in.identifier.strip()
         if '@' in identifier:

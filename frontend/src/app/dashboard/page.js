@@ -74,8 +74,18 @@ export default function Dashboard() {
     );
   }
 
-  const totalOwed = balances.filter(b => b.user_id === user?.id).reduce((acc, curr) => acc + curr.amount, 0);
-  const totalOwedToMe = balances.filter(b => b.owes_to_id === user?.id).reduce((acc, curr) => acc + curr.amount, 0);
+  const totalsByCurrency = balances.reduce((totals, balance) => {
+    const currencyCode = balance.currency_code || "USD";
+    const currencyTotals = totals[currencyCode] || { owed: 0, owedToMe: 0 };
+    if (balance.user_id === user?.id) currencyTotals.owed += balance.amount;
+    if (balance.owes_to_id === user?.id) currencyTotals.owedToMe += balance.amount;
+    totals[currencyCode] = currencyTotals;
+    return totals;
+  }, {});
+  const currencyTotals = Object.entries(totalsByCurrency).sort(([left], [right]) => left.localeCompare(right));
+  const displayedCurrencyTotals = currencyTotals.length > 0
+    ? currencyTotals
+    : [["USD", { owed: 0, owedToMe: 0 }]];
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 lg:p-12 pb-24">
@@ -114,11 +124,23 @@ export default function Dashboard() {
             <div className="space-y-6">
               <div className="flex justify-between items-center bg-red-100 border-4 border-black p-4 -rotate-1 shadow-neo-sm">
                 <span className="font-bold uppercase text-sm tracking-widest">You Owe</span>
-                <span className="font-black text-2xl text-red-600">${totalOwed.toFixed(2)}</span>
+                <div className="text-right">
+                  {displayedCurrencyTotals.map(([currencyCode, totals]) => (
+                    <div key={currencyCode} className="font-black text-2xl text-red-600">
+                      {currencyCode} {totals.owed.toFixed(2)}
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="flex justify-between items-center bg-green-100 border-4 border-black p-4 rotate-1 shadow-neo-sm">
                 <span className="font-bold uppercase text-sm tracking-widest">Owed to You</span>
-                <span className="font-black text-2xl text-green-600">${totalOwedToMe.toFixed(2)}</span>
+                <div className="text-right">
+                  {displayedCurrencyTotals.map(([currencyCode, totals]) => (
+                    <div key={currencyCode} className="font-black text-2xl text-green-600">
+                      {currencyCode} {totals.owedToMe.toFixed(2)}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </NeoCard>
@@ -145,7 +167,9 @@ export default function Dashboard() {
                         "font-black uppercase px-2 py-1 border-2 border-black",
                         amIOwed ? "bg-green-300 text-green-900" : "bg-red-300 text-red-900"
                       )}>
-                        {amIOwed ? `OWES $${b.amount.toFixed(2)}` : `YOU OWE $${b.amount.toFixed(2)}`}
+                        {amIOwed
+                          ? `OWES ${b.currency_code} ${b.amount.toFixed(2)}`
+                          : `YOU OWE ${b.currency_code} ${b.amount.toFixed(2)}`}
                       </div>
                     </li>
                   );

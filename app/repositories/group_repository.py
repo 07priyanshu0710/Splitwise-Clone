@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from typing import List, Optional
+from typing import List, Optional, Set
 from app.repositories.base import BaseRepository
 from app.models.group import Group, GroupMember, GroupMemberRole
 from app.schemas.group import GroupCreate, GroupUpdate
@@ -28,6 +28,15 @@ class GroupRepository(BaseRepository[Group]):
             GroupMember.group_id == group_id,
             GroupMember.user_id == user_id
         ).first()
+
+    def get_member_user_ids(self, group_id: int, user_ids: Set[int]) -> Set[int]:
+        if not user_ids:
+            return set()
+        rows = self.db.query(GroupMember.user_id).filter(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id.in_(user_ids),
+        ).all()
+        return {row[0] for row in rows}
 
     def remove_member(self, group_id: int, user_id: int):
         member = self.get_member(group_id, user_id)
