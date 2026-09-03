@@ -68,7 +68,10 @@ class ExpenseService(LoggerMixin):
                 split for split in expense.splits
                 if split.user_id != expense.payer_id and split.amount > 0
             ]
-            for split in sorted(balance_updates, key=lambda item: item.user_id):
+            for split in sorted(
+                balance_updates,
+                key=lambda item: (min(item.user_id, expense.payer_id), max(item.user_id, expense.payer_id)),
+            ):
                 self.balance_repository.update_balance(
                     user_id=split.user_id,
                     owes_to_id=expense.payer_id,

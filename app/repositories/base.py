@@ -18,20 +18,19 @@ class BaseRepository(Generic[ModelType]):
     def create(self, obj_in: dict) -> ModelType:
         db_obj = self.model(**obj_in)
         self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
+        self.db.flush()
         return db_obj
 
     def update(self, db_obj: ModelType, obj_in: dict) -> ModelType:
         for field, value in obj_in.items():
             setattr(db_obj, field, value)
         self.db.add(db_obj)
-        self.db.commit()
-        self.db.refresh(db_obj)
+        self.db.flush()
         return db_obj
 
-    def delete(self, id: Any) -> ModelType:
-        obj = self.db.query(self.model).get(id)
-        self.db.delete(obj)
-        self.db.commit()
+    def delete(self, id: Any) -> Optional[ModelType]:
+        obj = self.db.get(self.model, id)
+        if obj is not None:
+            self.db.delete(obj)
+            self.db.flush()
         return obj

@@ -24,6 +24,7 @@ class Expense(Base):
     __table_args__ = (
         CheckConstraint("currency_code = 'INR'", name="currency_inr"),
         Index("ix_expenses_group_created_at", "group_id", "created_at"),
+        Index("ix_expenses_payer_id", "payer_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -50,6 +51,7 @@ class ExpenseSplit(Base):
     __tablename__ = "expense_splits"
     __table_args__ = (
         Index("ix_expense_splits_expense_id", "expense_id"),
+        Index("ix_expense_splits_user_id", "user_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

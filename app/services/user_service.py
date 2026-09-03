@@ -1,5 +1,6 @@
 from typing import Optional, Any
-import logging
+
+from sqlalchemy.exc import IntegrityError
 
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate, UserLogin, Token
@@ -7,6 +8,7 @@ from app.core import security
 from app.models.user import User
 from app.core.exceptions import BusinessLogicError, UnauthorizedError
 from app.core.logging_config import LoggerMixin
+
 
 class UserService(LoggerMixin):
     def __init__(self, repository: UserRepository):
@@ -24,7 +26,18 @@ class UserService(LoggerMixin):
         user_data["hashed_password"] = hashed_password
         del user_data["password"]
 
-        user = self.repository.create(user_data)
+        try:
+            user = self.repository.create(user_data)
+            self.repository.db.commit()
+            self.repository.db.refresh(user)
+        except IntegrityError as exc:
+            self.repository.db.rollback()
+            raise BusinessLogicError("Email or mobile number already registered") from exc
+        except Exception:
+            self.repository.db.rollback()
+            self.logger.exception("Failed to register user")
+            raise
+
         self.logger.info(f"User {user.email} registered successfully")
         return user
 
@@ -56,4 +69,15 @@ class UserService(LoggerMixin):
             user_data["hashed_password"] = hashed_password
             del user_data["password"]
 
-        return self.repository.update(user, user_data)
+        try:
+            updated_user = self.repository.update(user, user_data)
+            self.repository.db.commit()
+            self.repository.db.refresh(updated_user)
+            return updated_user
+        except IntegrityError as exc:
+            self.repository.db.rollback()
+            raise BusinessLogicError("Email or mobile number already registered") from exc
+        except Exception:
+            self.repository.db.rollback()
+            self.logger.exception("Failed to update user")
+            raise

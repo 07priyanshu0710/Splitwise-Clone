@@ -212,3 +212,127 @@ def test_opposite_expenses_net_toward_the_larger_payer(client, test_user_token_h
     assert user1_balances.json()[0]["user_id"] == user2_id
     assert user1_balances.json()[0]["owes_to_id"] == user1_id
     assert user1_balances.json()[0]["amount"] == 50.0
+
+
+def test_unequal_and_share_split_integration(client, test_user_token_headers):
+    # 1. Create Group
+    response = client.post(
+        "/api/v1/groups/",
+        headers=test_user_token_headers["token1"],
+        json={"name": "Multi-Split Group"},
+    )
+    assert response.status_code == 200
+    group_id = response.json()["id"]
+
+    # 2. Add member
+    client.post(
+        f"/api/v1/groups/{group_id}/members",
+        headers=test_user_token_headers["token1"],
+        json={"identifier": test_user_token_headers["email2"]},
+    )
+
+    user1_id = test_user_token_headers["user1_id"]
+    user2_id = test_user_token_headers["user2_id"]
+
+    # 3. Create Unequal split expense: 100 total (User1: 60, User2: 40)
+    unequal_resp = client.post(
+        "/api/v1/expenses/",
+        headers=test_user_token_headers["token1"],
+        json={
+            "description": "Groceries",
+            "amount": 100.0,
+            "group_id": group_id,
+            "split_type": "unequal",
+            "splits": [
+                {"user_id": user1_id, "amount": 60.0},
+                {"user_id": user2_id, "amount": 40.0},
+            ],
+        },
+    )
+    assert unequal_resp.status_code == 200
+    expense_id = unequal_resp.json()["id"]
+
+    # Verify single expense retrieval
+    get_resp = client.get(
+        f"/api/v1/expenses/{expense_id}",
+        headers=test_user_token_headers["token1"],
+    )
+    assert get_resp.status_code == 200
+    assert get_resp.json()["split_type"] == "unequal"
+
+    # 4. Create Share split expense: 200 total (User1: 1 share, User2: 3 shares)
+    share_resp = client.post(
+        "/api/v1/expenses/",
+        headers=test_user_token_headers["token1"],
+        json={
+            "description": "Hotel",
+            "amount": 200.0,
+            "group_id": group_id,
+            "split_type": "share",
+            "splits": [
+                {"user_id": user1_id, "shares": 1.0},
+                {"user_id": user2_id, "shares": 3.0},
+            ],
+        },
+    )
+    assert share_resp.status_code == 200
+    assert share_resp.json()["split_type"] == "share"
+
+    # 5. Verify group expenses list endpoint
+    list_resp = client.get(
+        f"/api/v1/expenses/group/{group_id}",
+        headers=test_user_token_headers["token1"],
+    )
+    assert list_resp.status_code == 200
+    assert len(list_resp.json()) == 2
+
+    # 6. Verify total balances: User2 owes 40 + 150 = 190
+    bal_resp = client.get(
+        f"/api/v1/balances/group/{group_id}",
+        headers=test_user_token_headers["token1"],
+    )
+    assert bal_resp.status_code == 200
+    balances = bal_resp.json()
+    assert len(balances) == 1
+    assert balances[0]["user_id"] == user2_id
+    assert balances[0]["owes_to_id"] == user1_id
+    assert balances[0]["amount"] == 190.0
+
+
+def test_monthly_summary_report_integration(client, test_user_token_headers):
+    # Setup expense
+    grp = client.post(
+        "/api/v1/groups/",
+        headers=test_user_token_headers["token1"],
+        json={"name": "Reporting Group"},
+    ).json()
+    client.post(
+        f"/api/v1/groups/{grp['id']}/members",
+        headers=test_user_token_headers["token1"],
+        json={"identifier": test_user_token_headers["email2"]},
+    )
+    client.post(
+        "/api/v1/expenses/",
+        headers=test_user_token_headers["token1"],
+        json={
+            "description": "Report Dinner",
+            "amount": 100.0,
+            "group_id": grp["id"],
+            "split_type": "equal",
+            "splits": [
+                {"user_id": test_user_token_headers["user1_id"]},
+                {"user_id": test_user_token_headers["user2_id"]},
+            ],
+        },
+    )
+
+    # Test monthly summary API against real PostgreSQL
+    summary_resp = client.get(
+        "/api/v1/reports/monthly-summary",
+        headers=test_user_token_headers["token1"],
+    )
+    assert summary_resp.status_code == 200
+    summaries = summary_resp.json()
+    assert len(summaries) >= 1
+    assert summaries[0]["total_paid"] >= 100.0
+    assert "month" in summaries[0]

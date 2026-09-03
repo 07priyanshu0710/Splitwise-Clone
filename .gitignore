@@ -19,3 +19,6 @@ build/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+
+# Local learning notes
+PROJECT_LEARNING_GUIDE.md

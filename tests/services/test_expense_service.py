@@ -5,7 +5,7 @@ from decimal import Decimal
 from app.services.expense_service import ExpenseService
 from app.schemas.expense import ExpenseCreate, ExpenseSplitCreate
 from app.models.expense import SplitType
-from app.core.exceptions import BusinessLogicError, ForbiddenError
+from app.core.exceptions import BusinessLogicError, ForbiddenError, NotFoundError
 
 @pytest.fixture
 def mock_repos():
@@ -123,3 +123,118 @@ def test_create_expense_rolls_back_when_balance_update_fails(expense_service, mo
 
     mock_repos["expense_repo"].db.rollback.assert_called_once_with()
     mock_repos["expense_repo"].db.commit.assert_not_called()
+
+
+def test_validate_unequal_split_success(expense_service):
+    total = Decimal("150.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1, amount=Decimal("100.00")),
+        ExpenseSplitCreate(user_id=2, amount=Decimal("50.00")),
+    ]
+    expense_service._validate_unequal_split(total, splits)
+    assert splits[0].amount == Decimal("100.00")
+    assert splits[1].amount == Decimal("50.00")
+    assert splits[0].percentage is None
+    assert splits[0].shares is None
+
+
+def test_validate_unequal_split_missing_amount(expense_service):
+    total = Decimal("150.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1, amount=None),
+        ExpenseSplitCreate(user_id=2, amount=Decimal("50.00")),
+    ]
+    with pytest.raises(BusinessLogicError, match="Amount must be provided"):
+        expense_service._validate_unequal_split(total, splits)
+
+
+def test_validate_unequal_split_sum_mismatch(expense_service):
+    total = Decimal("150.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1, amount=Decimal("100.00")),
+        ExpenseSplitCreate(user_id=2, amount=Decimal("40.00")),
+    ]
+    with pytest.raises(BusinessLogicError, match="does not equal total amount"):
+        expense_service._validate_unequal_split(total, splits)
+
+
+def test_validate_share_split_success(expense_service):
+    total = Decimal("100.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1, shares=Decimal("1")),
+        ExpenseSplitCreate(user_id=2, shares=Decimal("2")),
+    ]
+    expense_service._validate_share_split(total, splits)
+    # 100 * 1 / 3 = 33.33, 100 * 2 / 3 = 66.67. Remainder = 0.00.
+    assert sum(s.amount for s in splits) == Decimal("100.00")
+    assert splits[0].amount == Decimal("33.33")
+    assert splits[1].amount == Decimal("66.67")
+
+
+def test_validate_share_split_with_remainder(expense_service):
+    total = Decimal("100.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1, shares=Decimal("1")),
+        ExpenseSplitCreate(user_id=2, shares=Decimal("1")),
+        ExpenseSplitCreate(user_id=3, shares=Decimal("1")),
+    ]
+    expense_service._validate_share_split(total, splits)
+    # 100 / 3 = 33.33 * 3 = 99.99, remainder 0.01 added to first split
+    assert splits[0].amount == Decimal("33.34")
+    assert splits[1].amount == Decimal("33.33")
+    assert splits[2].amount == Decimal("33.33")
+    assert sum(s.amount for s in splits) == Decimal("100.00")
+
+
+def test_validate_share_split_missing_shares(expense_service):
+    total = Decimal("100.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1, shares=None),
+        ExpenseSplitCreate(user_id=2, shares=Decimal("2")),
+    ]
+    with pytest.raises(BusinessLogicError, match="Shares must be provided"):
+        expense_service._validate_share_split(total, splits)
+
+
+def test_validate_share_split_zero_shares(expense_service):
+    total = Decimal("100.00")
+    splits = [
+        ExpenseSplitCreate(user_id=1, shares=Decimal("0")),
+        ExpenseSplitCreate(user_id=2, shares=Decimal("0")),
+    ]
+    with pytest.raises(BusinessLogicError, match="greater than zero"):
+        expense_service._validate_share_split(total, splits)
+
+
+def test_create_expense_rejects_duplicate_user_splits(expense_service):
+    expense_in = ExpenseCreate(
+        description="Dinner",
+        amount=100.00,
+        split_type=SplitType.EQUAL,
+        splits=[ExpenseSplitCreate(user_id=1), ExpenseSplitCreate(user_id=1)],
+    )
+    current_user = MagicMock(id=1)
+    with pytest.raises(BusinessLogicError, match="appear only once"):
+        expense_service.create_expense(expense_in, current_user)
+
+
+def test_get_expense_not_found(expense_service, mock_repos):
+    mock_repos["expense_repo"].get_with_details.return_value = None
+    with pytest.raises(NotFoundError, match="Expense not found"):
+        expense_service.get_expense(999, user_id=1)
+
+
+def test_get_expense_forbidden(expense_service, mock_repos):
+    mock_repos["expense_repo"].get_with_details.return_value = SimpleNamespace(
+        id=5,
+        payer_id=2,
+        splits=[SimpleNamespace(user_id=3)],
+    )
+    with pytest.raises(ForbiddenError, match="do not have access"):
+        expense_service.get_expense(5, user_id=1)
+
+
+def test_get_group_expenses_forbidden(expense_service, mock_repos):
+    mock_repos["group_repo"].get_member.return_value = None
+    with pytest.raises(ForbiddenError, match="Not a member"):
+        expense_service.get_group_expenses(99, user_id=1)
